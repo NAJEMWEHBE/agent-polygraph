@@ -1,0 +1,7 @@
+include LICENSE
+include README.md
+include pyproject.toml
+recursive-include src/agent_polygraph py.typed
+recursive-include tests *.py
+recursive-include docs *.md
+global-exclude __pycache__ *.py[cod]

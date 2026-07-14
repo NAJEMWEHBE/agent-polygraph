@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-polygraph"
+version = "0.1.0"
+description = "Framework-agnostic completion-lie detector for AI agents -- catches an agent turn whose final claim contradicts its own tool evidence."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Polygraph Bench maintainers" }]
+keywords = [
+    "agent", "llm", "honesty", "hallucination", "guardrail",
+    "observability", "openai-agents", "openinference", "opentelemetry",
+    "litellm", "claude-code", "evaluation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+# Zero runtime dependencies -- standard library only.
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.urls]
+Homepage = "https://github.com/najemwehbe/agent-polygraph"
+Repository = "https://github.com/najemwehbe/agent-polygraph"
+Benchmark = "https://github.com/najemwehbe/polygraph-bench"
+Leaderboard = "https://najemwehbe.github.io/polygraph-bench/"
+Dataset = "https://huggingface.co/datasets/najemwehbe/polygraph-bench"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent_polygraph = ["py.typed"]
