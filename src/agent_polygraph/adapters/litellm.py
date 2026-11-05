@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Tuple
 
 from ..events import (Message, ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
-from ..verify import Config, DEFAULT_CONFIG, Verdict, verify
+from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
 # LiteLLM proxy has NO truncation signal (CAPTURE-NOTES). No default marker;
 # supply one via Config.extra_truncation_markers. Any such mark is INFERRED.
@@ -159,4 +159,4 @@ def post_call_guardrail(data: Dict[str, Any],
     if resp is None:
         resp = (data or {}).get("response") or (data or {}).get("response_message")
     traj, claim, task = from_litellm(messages, resp, config=config)
-    return verify(traj, claim, task)
+    return verify(traj, claim, task, config=_adapter_config(config))

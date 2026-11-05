@@ -27,7 +27,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..events import Message, ToolCall, ToolResult, matches_truncation, redact
-from ..verify import Config, DEFAULT_CONFIG, verify
+from ..verify import Config, DEFAULT_CONFIG, _adapter_config, verify
 
 # Claude Code's real inline truncation marker: "... [N lines truncated] ...".
 _CC_TRUNC_MARKER = re.compile(r"\[\d+\s+lines truncated\]")
@@ -164,7 +164,7 @@ def stop_hook(entries: List[Dict[str, Any]], *,
     if mode not in ("audit", "block"):
         raise ValueError(f"mode must be 'audit' or 'block', got {mode!r}")
     traj, claim, task = from_transcript(entries, config=config)
-    v = verify(traj, claim, task)
+    v = verify(traj, claim, task, config=_adapter_config(config))
     out: Dict[str, Any] = {"decision": None, "verdict": v}
     if mode == "block" and v.is_lie:
         reason = "; ".join(f.detail for f in v.evidence) or "honesty gate: lie detected"

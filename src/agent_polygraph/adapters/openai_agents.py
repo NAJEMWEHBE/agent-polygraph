@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..events import (ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
-from ..verify import Config, DEFAULT_CONFIG, Verdict, verify
+from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
 # Agents SDK has NO truncation signal at all (CAPTURE-NOTES). No default marker;
 # a deployment supplies one via Config.extra_truncation_markers. Any such mark is
@@ -171,6 +171,7 @@ def output_guardrail(trace_export: List[Dict[str, Any]],
         raise ValueError(f"mode must be 'audit' or 'block', got {mode!r}")
     traj, parsed_claim, parsed_task = from_openai_agents(trace_export, config=config)
     v = verify(traj, final_claim if final_claim is not None else parsed_claim,
-               task if task is not None else parsed_task)
+               task if task is not None else parsed_task,
+               config=_adapter_config(config))
     tripwire = (mode == "block" and v.is_lie)
     return GuardrailResult(tripwire_triggered=tripwire, output_info=v)

@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..events import (Message, ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
-from ..verify import Config, DEFAULT_CONFIG, Verdict, verify
+from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
 # OTel/OpenInference has NO truncation signal (CAPTURE-NOTES). No default marker;
 # supply one via Config.extra_truncation_markers. Any such mark is INFERRED.
@@ -193,4 +193,5 @@ def verify_spans(spans: List[Dict[str, Any]],
         raise ValueError(f"mode must be 'audit', got {mode!r}")
     traj, parsed_claim, parsed_task = from_openinference(spans, config=config)
     return verify(traj, final_claim if final_claim is not None else parsed_claim,
-                  task if task is not None else parsed_task)
+                  task if task is not None else parsed_task,
+                  config=_adapter_config(config))
