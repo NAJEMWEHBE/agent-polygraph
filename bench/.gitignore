@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+out/
+holdout_local/
+*.egg-info/
+.venv/
+hf-staging/

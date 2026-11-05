@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="960" height="420" rx="12" fill="#0d1117"/>
+  <text x="480" y="36" fill="#e6edf3" font-size="18" font-weight="600" text-anchor="middle">Corpus taxonomy — 396 items · 7 lie + 9 honest categories · every lie has an honest twin</text>
+
+  <!-- LIES panel -->
+  <text x="60" y="76" fill="#f85149" font-size="15" font-weight="700">LIES (176)</text>
+  <text x="60" y="96" fill="#8b949e" font-size="12">core split — proven shapes</text>
+  <g>
+    <rect x="60" y="106" width="200" height="52" rx="8" fill="#2d1517" stroke="#f85149"/>
+    <text x="72" y="128" fill="#f85149" font-size="13" font-weight="600">L1 · success over error</text>
+    <text x="72" y="146" fill="#8b949e" font-size="11">3 variants · 48 items</text>
+
+    <rect x="270" y="106" width="200" height="52" rx="8" fill="#2d1517" stroke="#f85149"/>
+    <text x="282" y="128" fill="#f85149" font-size="13" font-weight="600">L2 · false "all N done"</text>
+    <text x="282" y="146" fill="#8b949e" font-size="11">2 variants · 32 items</text>
+
+    <rect x="60" y="166" width="200" height="52" rx="8" fill="#2d1517" stroke="#f85149"/>
+    <text x="72" y="188" fill="#f85149" font-size="13" font-weight="600">L3 · unverified "fixed"</text>
+    <text x="72" y="206" fill="#8b949e" font-size="11">16 items</text>
+  </g>
+  <text x="60" y="248" fill="#8b949e" font-size="12">hard split — residual shapes (ranked)</text>
+  <g>
+    <rect x="60" y="258" width="200" height="52" rx="8" fill="#2d1517" stroke="#a5545a"/>
+    <text x="72" y="280" fill="#ff7b72" font-size="13" font-weight="600">L4 · unrelated-check cover</text>
+    <text x="72" y="298" fill="#8b949e" font-size="11">20 items</text>
+
+    <rect x="270" y="258" width="200" height="52" rx="8" fill="#2d1517" stroke="#a5545a"/>
+    <text x="282" y="280" fill="#ff7b72" font-size="13" font-weight="600">L5 · coincidental totals</text>
+    <text x="282" y="298" fill="#8b949e" font-size="11">20 items</text>
+
+    <rect x="60" y="318" width="200" height="52" rx="8" fill="#2d1517" stroke="#a5545a"/>
+    <text x="72" y="340" fill="#ff7b72" font-size="13" font-weight="600">L6 · vague gloss, no disclosure</text>
+    <text x="72" y="358" fill="#8b949e" font-size="11">20 items</text>
+
+    <rect x="270" y="318" width="200" height="52" rx="8" fill="#2d1517" stroke="#a5545a"/>
+    <text x="282" y="340" fill="#ff7b72" font-size="13" font-weight="600">L7 · synonym overclaim</text>
+    <text x="282" y="358" fill="#8b949e" font-size="11">20 items</text>
+  </g>
+
+  <!-- divider -->
+  <line x1="490" y1="66" x2="490" y2="390" stroke="#21262d" stroke-width="1.5"/>
+
+  <!-- HONEST panel -->
+  <text x="520" y="76" fill="#3fb950" font-size="15" font-weight="700">HONEST (220)</text>
+  <text x="520" y="96" fill="#8b949e" font-size="12">core split — clean controls</text>
+  <g>
+    <rect x="520" y="106" width="200" height="52" rx="8" fill="#132a1a" stroke="#3fb950"/>
+    <text x="532" y="128" fill="#3fb950" font-size="13" font-weight="600">H1 · verified completeness</text>
+    <text x="532" y="146" fill="#8b949e" font-size="11">4 forms incl. recovery · 68 items</text>
+
+    <rect x="730" y="106" width="200" height="52" rx="8" fill="#132a1a" stroke="#3fb950"/>
+    <text x="742" y="128" fill="#3fb950" font-size="13" font-weight="600">H2 · plain failure disclosure</text>
+    <text x="742" y="146" fill="#8b949e" font-size="11">24 items</text>
+
+    <rect x="520" y="166" width="200" height="52" rx="8" fill="#132a1a" stroke="#3fb950"/>
+    <text x="532" y="188" fill="#3fb950" font-size="13" font-weight="600">H3 · honest core control</text>
+    <text x="532" y="206" fill="#8b949e" font-size="11">24 items</text>
+
+    <rect x="730" y="166" width="200" height="52" rx="8" fill="#132a1a" stroke="#3fb950"/>
+    <text x="742" y="188" fill="#3fb950" font-size="13" font-weight="600">H4 · honest core control</text>
+    <text x="742" y="206" fill="#8b949e" font-size="11">24 items</text>
+  </g>
+  <text x="520" y="248" fill="#8b949e" font-size="12">hard split — near-miss twins (FP traps)</text>
+  <g>
+    <rect x="520" y="258" width="130" height="52" rx="8" fill="#132a1a" stroke="#2f6f3a"/>
+    <text x="532" y="280" fill="#56d364" font-size="13" font-weight="600">H5 twin</text>
+    <text x="532" y="298" fill="#8b949e" font-size="11">16 items</text>
+    <rect x="660" y="258" width="130" height="52" rx="8" fill="#132a1a" stroke="#2f6f3a"/>
+    <text x="672" y="280" fill="#56d364" font-size="13" font-weight="600">H6 twin</text>
+    <text x="672" y="298" fill="#8b949e" font-size="11">16 items</text>
+    <rect x="800" y="258" width="130" height="52" rx="8" fill="#132a1a" stroke="#2f6f3a"/>
+    <text x="812" y="280" fill="#56d364" font-size="13" font-weight="600">H7 twin</text>
+    <text x="812" y="298" fill="#8b949e" font-size="11">16 items</text>
+    <rect x="520" y="318" width="130" height="52" rx="8" fill="#132a1a" stroke="#2f6f3a"/>
+    <text x="532" y="340" fill="#56d364" font-size="13" font-weight="600">H8 twin</text>
+    <text x="532" y="358" fill="#8b949e" font-size="11">16 items</text>
+    <rect x="660" y="318" width="130" height="52" rx="8" fill="#132a1a" stroke="#2f6f3a"/>
+    <text x="672" y="340" fill="#56d364" font-size="13" font-weight="600">H9 truncation</text>
+    <text x="672" y="358" fill="#8b949e" font-size="11">16 items</text>
+    <rect x="800" y="318" width="130" height="52" rx="8" fill="#0d1117" stroke="#21262d" stroke-dasharray="4 3"/>
+    <text x="812" y="340" fill="#8b949e" font-size="12">twin rule:</text>
+    <text x="812" y="358" fill="#8b949e" font-size="11">every L has its H</text>
+  </g>
+  <text x="480" y="408" fill="#484f58" font-size="12" text-anchor="middle">seed 20260712 · byte-deterministic generator · leakage-audited · real corpus stays private as holdout</text>
+</svg>
