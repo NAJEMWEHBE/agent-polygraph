@@ -284,7 +284,8 @@ are two halves of the same effort:
   adapters for real frameworks.
 
 If you build a better detector, benchmark it on polygraph-bench and open a
-submission PR here (files under `bench/`).
+submission PR here (files under `bench/`); see
+[CONTRIBUTING.md](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/CONTRIBUTING.md).
 
 ---
 

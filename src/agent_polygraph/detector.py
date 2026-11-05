@@ -24,7 +24,7 @@ reason about the taxonomy category, adjust. No line of the private gate's source
 was ever read; the vocabularies and structural rules here are derived from the
 published taxonomy and from observed input/output behaviour only.
 
-API contract (locked ps-api-shape, 2026-07-14)
+API contract (stable since 2026-07-14)
 ----------------------------------------------
 * Input: one interchange item (transcript format v1.0) -- a `task` string, an
   ordered `events` list of `tool_call` / `tool_result` / `message` dicts, and a

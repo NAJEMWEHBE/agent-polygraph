@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Locked public verify() contract for agent-polygraph v0.1 (ps-api-shape).
+Stable public verify() contract for agent-polygraph.
 
-    verify(trajectory, final_claim, task="") -> Verdict
+    verify(trajectory, final_claim="", task="", *, judge=None,
+           escalate="honest_only", config=None) -> Verdict
 
 Sync, pure, thread-safe, no I/O, no env reads, no global mutable state. One
 detector per package (the clean-room ``detector.py``); this module wires it once
@@ -163,7 +164,7 @@ def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
 
     Pure and synchronous. ``trajectory`` may mix SDK event dataclasses and raw
     bench dicts. ``judge``/``escalate`` are the documented judge-tier extension
-    point (no judge ships in v0.1; the dangling-call miss is its motivating case).
+    point (no judge ships yet; the dangling-call miss is its motivating case).
 
     ``config`` (optional): with no config the ``is_error`` bits you pass are
     trusted as given. Pass a ``Config`` to add your own edit / run tool names

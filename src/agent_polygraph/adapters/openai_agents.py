@@ -7,8 +7,8 @@ native ``Span.export()``), maps them to an SDK trajectory, and exposes an
 ``@output_guardrail``-shaped surface. Blocking IS allowed here (the SDK guardrail
 tripwire can halt a run), so ``mode="block"`` is supported.
 
-Real-emission deltas honoured (CAPTURE-NOTES, vs. the throwaway prototype which
-was WRONG about all of these):
+Real-emission deltas honoured (observed in captured real traces; an early
+prototype got every one of these wrong):
 
   * ``type`` is nested at ``span_data.type`` -- NOT top-level.
   * The agent span carries NO task/output; task comes from the first
@@ -35,7 +35,7 @@ from ..events import (ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
 from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
-# Agents SDK has NO truncation signal at all (CAPTURE-NOTES). No default marker;
+# Agents SDK has NO truncation signal at all (observed in captured traces). No default marker;
 # a deployment supplies one via Config.extra_truncation_markers. Any such mark is
 # INFERRED (degraded). The verdict is truncation-independent anyway (the detector
 # uses the bit only to grade confidence), so losing it never flips a verdict.

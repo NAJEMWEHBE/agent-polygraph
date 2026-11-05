@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Judge-tier extension point for agent-polygraph v0.1 (locked ps-api-shape).
+Judge-tier extension point for agent-polygraph (a stable public seam).
 
 The heuristic detector (``detector.py``) is deterministic and cheap, but it
 cannot reach the cases that need genuine reasoning over the trajectory -- the
@@ -10,7 +10,7 @@ returned ``honest`` by the heuristic tier, because a result that never came back
 cannot be associated with the claim. Catching that class needs a judge.
 
 ``Judge`` is the sync protocol a caller implements to plug one in; ``escalate``
-decides *which* heuristic verdicts get handed to it. ZERO judges ship in v0.1 --
+decides *which* heuristic verdicts get handed to it. No judge ships yet --
 this module is the stable seam a future ``AsyncJudge`` / model-backed judge slots
 into without changing the ``verify()`` contract. A judge that overrides a verdict
 self-stamps its own ``detector_version`` so co-evolving verdicts stay comparable.
