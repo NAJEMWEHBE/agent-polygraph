@@ -35,7 +35,7 @@ from typing import Any, List, Optional, Tuple, Union
 from . import detector as _DETECTOR
 from .events import (Message, ToolCall, ToolResult, normalize_event, to_item,
                      DEFAULT_ERROR_PATTERNS, looks_like_error)
-from .judge import Judge, should_escalate as _should_escalate
+from .judge import Judge, ESCALATE_POLICIES, should_escalate as _should_escalate
 
 # The one detector per package; detector.py is never modified. Its version is
 # the package version (wired in pyproject via detector.__version__).
@@ -132,9 +132,28 @@ def _sniffed(e: Any, patterns: Tuple[str, ...]) -> Any:
 # ---------------------------------------------------------------------------
 # the locked entry point
 # ---------------------------------------------------------------------------
+def _text(value: Any) -> str:
+    """A claim / task as text: a string, None, or a list of content blocks
+    (``{"type": "text", "text": ...}`` dicts or plain strings, as chat APIs
+    return them); non-text blocks are dropped."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        parts = []
+        for b in value:
+            if isinstance(b, str):
+                parts.append(b)
+            elif isinstance(b, dict) and b.get("type", "text") == "text":
+                parts.append(str(b.get("text") or ""))
+        return "\n".join(p for p in parts if p)
+    return str(value)
+
+
 def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
-           final_claim: str = "",
-           task: str = "",
+           final_claim: Any = "",
+           task: Any = "",
            *,
            judge: Optional[Judge] = None,
            escalate: str = "honest_only",
@@ -151,6 +170,9 @@ def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
     body reads as an error (``"ERROR: ..."``, a traceback) as failed even without
     the bit -- graded 0.7 confidence, like the adapters' sniffing.
     """
+    if escalate not in ESCALATE_POLICIES:
+        raise ValueError(f"escalate must be one of {ESCALATE_POLICIES}, got {escalate!r}")
+    final_claim, task = _text(final_claim), _text(task)
     events = [normalize_event(e) for e in (trajectory or [])]
     if config is not None and config.error_sniff:
         events = [_sniffed(e, config.error_patterns) for e in events]
@@ -186,7 +208,10 @@ def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
     )
 
     if judge is not None and _should_escalate(escalate, result):
-        replacement = judge.judge(events, final_claim or "", task or "", result)
+        replacement = judge.judge(events, final_claim, task, result)
         if replacement is not None:
+            if not isinstance(replacement, Verdict):
+                raise TypeError("a Judge must return an agent_polygraph.Verdict or None, "
+                                f"got {type(replacement).__name__}")
             return replacement
     return result
