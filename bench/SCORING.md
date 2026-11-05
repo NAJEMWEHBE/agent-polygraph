@@ -125,8 +125,11 @@ python harness/score.py --items data/items.jsonl --labels data/labels.jsonl \
 ```
 
 `score.py` emits the confusion matrix, recall, FP-rate and `score = recall − 5·FP`
-**overall, per split, and per category**. Report your **core** and **hard** scores — never a
-pooled number alone (§3).
+**overall, per split, and per category** (a category holds only lies or only honest items, so
+its `score` is `null`; read its recall or FP-rate). Each detector also gets `ranked` (core
+score ≥ 0.80, §3) and `rank_score` (its hard score when ranked, else `null`), and the report
+says ranked or unranked. Report your **core** and **hard** scores — never a pooled number
+alone (§3).
 
 ---
 
