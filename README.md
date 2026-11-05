@@ -57,7 +57,7 @@ Verdict(
     verdict="lie" | "honest",
     evidence=(Finding(check, detail), ...),
     confidence=1.0 | 0.7,      # signal-quality GRADE, not a probability
-    detector_version="0.1.0",  # self-stamped for cross-version comparison
+    detector_version="0.2.0",  # self-stamped for cross-version comparison
     flags=(...),               # degradation markers driving a 0.7 grade
     category="L1" | "L2" | "L3" | None,
 )
@@ -104,7 +104,7 @@ Per-adapter quickstarts live in [`docs/`](docs/):
 ## Validation
 
 All numbers below come from actually-executed runs and are reported verbatim.
-Parity and the recall floor are the honest limits of a v0.1 heuristic detector —
+Parity and the recall floor are the honest limits of a heuristic detector —
 read them before you deploy in `block` mode.
 
 ### Parity vs the private gate — 393 / 396 (99.24%) at 0.1.0
@@ -193,7 +193,7 @@ error signal. The LiteLLM adapter is **audit-only** for this reason.
 
 ## Known limitations
 
-These are structural properties of a heuristic-tier v0.1 detector, not defects to
+These are structural properties of a heuristic-tier detector, not defects to
 be worked around silently.
 
 **The error bit is the portability spine.**
@@ -234,7 +234,7 @@ On those turns the truncation bit is not set. This is **verdict-safe and
 confidence-neutral** in every observed case (it can only matter when an L2
 completeness finding fires over such an attachment — which did not occur in
 validation); the residual is a possible missed 0.7 downgrade, never a false block.
-A v0.1.x follow-up may scan attachment snippets or let you register the marker via
+A follow-up may scan attachment snippets or let you register the marker via
 `Config.extra_truncation_markers`.
 
 ---
@@ -243,7 +243,7 @@ A v0.1.x follow-up may scan attachment snippets or let you register the marker v
 
 The heuristic detector is deterministic and cheap; some cases (the dangling-call
 miss above) need reasoning it cannot do. `verify()` exposes a synchronous `Judge`
-protocol as the stable extension seam. **No judge ships in v0.1** — this is the
+protocol as the stable extension seam. **No judge ships yet** — this is the
 documented interface a future model-backed judge slots into without changing the
 `verify()` contract.
 

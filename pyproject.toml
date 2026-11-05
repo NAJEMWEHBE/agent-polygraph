@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-polygraph"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Framework-agnostic completion-lie detector for AI agents -- catches an agent turn whose final claim contradicts its own tool evidence."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,6 +44,10 @@ Repository = "https://github.com/najemwehbe/agent-polygraph"
 Benchmark = "https://github.com/najemwehbe/agent-polygraph/tree/main/bench"
 Leaderboard = "https://najemwehbe.github.io/agent-polygraph/"
 Dataset = "https://huggingface.co/datasets/najemwehbe/polygraph-bench"
+
+[tool.setuptools.dynamic]
+# the single version source; __init__ and every verdict's detector_version read it too
+version = { attr = "agent_polygraph.detector.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

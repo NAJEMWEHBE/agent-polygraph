@@ -37,9 +37,10 @@ from .events import (Message, ToolCall, ToolResult, normalize_event, to_item,
                      DEFAULT_ERROR_PATTERNS, looks_like_error)
 from .judge import Judge, ESCALATE_POLICIES, should_escalate as _should_escalate
 
-# The one detector per package; detector.py is never modified. Its version is
-# the package version (wired in pyproject via detector.__version__).
-DETECTOR_VERSION: str = getattr(_DETECTOR, "__version__", "0.0.0")
+# The one detector per package. detector.__version__ is the single version
+# source: pyproject reads it ([tool.setuptools.dynamic]) and the package and
+# every verdict carry it.
+DETECTOR_VERSION: str = _DETECTOR.__version__
 
 
 # ---------------------------------------------------------------------------

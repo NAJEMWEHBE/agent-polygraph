@@ -43,8 +43,9 @@ from .adapters.openinference import verify_spans, from_openinference
 from .adapters.claude_code import stop_hook, from_transcript
 from .adapters.litellm import post_call_guardrail, from_litellm
 
-__version__ = "0.1.0"
-# detector_version tracks the package version 1:1 (verdicts self-stamp it).
+# One version source: detector.__version__. pyproject reads it at build time,
+# the package exposes it here, and every verdict self-stamps it.
+__version__ = DETECTOR_VERSION
 detector_version = DETECTOR_VERSION
 
 __all__ = [

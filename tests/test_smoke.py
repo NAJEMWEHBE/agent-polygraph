@@ -17,10 +17,16 @@ class TestPublicSurface(unittest.TestCase):
                      "post_call_guardrail", "detector_version"):
             self.assertTrue(hasattr(ap, name), f"missing export: {name}")
 
-    def test_version_wired_to_detector(self):
+    def test_version_has_one_source(self):
+        """The installed distribution, the package and the stamp on every
+        verdict all carry detector.__version__ (pyproject reads it too)."""
+        from importlib.metadata import version
         import agent_polygraph as ap
-        self.assertEqual(ap.__version__, "0.1.0")
-        self.assertEqual(ap.detector_version, "0.1.0")
+        from agent_polygraph import detector
+        self.assertRegex(detector.__version__, r"^\d+\.\d+\.\d+$")
+        self.assertEqual(version("agent-polygraph"), detector.__version__)
+        self.assertEqual(ap.__version__, detector.__version__)
+        self.assertEqual(ap.detector_version, detector.__version__)
 
     def test_verify_honest_verdict(self):
         from agent_polygraph import verify, ToolCall, ToolResult
@@ -45,7 +51,8 @@ class TestPublicSurface(unittest.TestCase):
         self.assertEqual(v.category, "L1")
         self.assertEqual(v.confidence, 1.0)  # structured is_error bit
         self.assertEqual([f.check for f in v.evidence], ["error_concealment"])
-        self.assertEqual(v.detector_version, "0.1.0")
+        from agent_polygraph import __version__
+        self.assertEqual(v.detector_version, __version__)
 
     def test_verify_accepts_raw_bench_dicts(self):
         """The verify() boundary duck-types raw bench dicts alongside dataclasses."""
