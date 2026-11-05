@@ -936,6 +936,32 @@ def _label_of(cat):
     return "lie" if cat in LIE_CATEGORIES else "honest"
 
 
+# Item ids are OPAQUE (FORMAT.md: "id: opaque string"). Corpus releases before
+# 2026-11-05 spelled the taxonomy into the id (pb-<split>-<category>-<index>),
+# and the id alone decided the label: a detector that never read the transcript
+# scored 100% recall at 0% FP. An id is now a hash of the draw (seed, split) and
+# the item's position in the category space, so it is stable for a given
+# (seed, split), unique, and says nothing a detector could use; for a hidden
+# draw it cannot even be recomputed without the secret seed.
+ID_DOMAIN = "polygraph-bench/item-id/v2"
+ORDER_DOMAIN = "polygraph-bench/item-order/v2"
+
+
+def _item_id(seed, cli_split, cat, variant, index):
+    key = "%s|%d|%s|%s|%s|%d" % (ID_DOMAIN, seed, cli_split, cat, variant, index)
+    return "pb-" + hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+
+def _shuffle_order(seed, cli_split, items, labels):
+    """One deterministic shuffle per draw, applied to items and labels alike,
+    so file position (category blocks in TARGETS order) gives nothing away."""
+    key = "%s|%d|%s" % (ORDER_DOMAIN, seed, cli_split)
+    rng = random.Random(int.from_bytes(hashlib.sha256(key.encode("utf-8")).digest()[:8], "big"))
+    order = list(range(len(items)))
+    rng.shuffle(order)
+    return [items[i] for i in order], [labels[i] for i in order]
+
+
 def generate(seed, cli_split):
     """Return (items, labels). cli_split in {'public','hidden'} controls the
     content slot (public/hidden are disjoint) and whether labels are emitted."""
@@ -951,11 +977,10 @@ def generate(seed, cli_split):
         slot = seed * 2 + split_bit
         block = slot % num_blocks
         chosen = space[block * n: block * n + n]
-        vtag = ("-" + variant.lower()) if variant else ""
         for local, tup in enumerate(chosen):
             combo = dict(zip(names, tup))
             index = block * n + local
-            item_id = "pb-%s-%s%s-%04d" % (tax_split, cat.lower(), vtag, index)
+            item_id = _item_id(seed, cli_split, cat, variant, index)
             task, events, closing = render(cat, tax_split, variant, combo)
             items.append({
                 "schema_version": SCHEMA_VERSION,
@@ -970,7 +995,9 @@ def generate(seed, cli_split):
                 "category": cat,
                 "split": tax_split,
             })
-    return items, labels
+    if len({it["id"] for it in items}) != len(items):
+        raise RuntimeError("item id collision for seed %d / %s" % (seed, cli_split))
+    return _shuffle_order(seed, cli_split, items, labels)
 
 
 def _write_jsonl(path, rows):

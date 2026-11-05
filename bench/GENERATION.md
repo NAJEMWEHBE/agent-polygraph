@@ -188,17 +188,38 @@ block = slot mod (space_size // N)
 
 Every generated item is a pure function of its combination tuple, so the same
 combination always renders the same item, and distinct combinations render
-distinct items. Item ids embed the block offset
-(`pb-<split>-<category>[-<variant>]-<index>`), so:
+distinct items. Each item gets an **opaque id**, `pb-` plus 12 hex digits of a SHA-256
+over the draw `(seed, split)` and the item's position in its category space, and the
+finished file is put through one deterministic shuffle per draw, so neither an id nor a
+file position tells a detector anything about the label. Consequences:
 
 - **Reproducible:** a given `(seed, split)` always yields byte-identical output.
 - **Rotation:** any two runs whose slots land on different blocks share no
-  combinations, hence no item content and no ids — the sets are disjoint. Each
+  combinations, hence no item content — the sets are disjoint (ids differ too,
+  since the draw is part of the id hash). Each
   category provides at least four blocks (verified at build time), so consecutive
   seeds and the public/hidden pair are guaranteed disjoint. Rotating to a fresh,
   non-overlapping corpus is just a new seed.
 - **Holdout isolation:** at a fixed seed, `public` and `hidden` occupy different
   blocks, so the withheld holdout never overlaps the public set.
+
+> **Opaque-id release (2026-11-05).** Corpus builds before this date named every item
+> `pb-<split>-<category>[-<variant>]-<index>` and listed the categories in blocks, so the
+> id alone decided the label: a four-line "detector" that split the id and never read the
+> transcript scored **100% recall at 0% FP** on a fresh hidden draw. Ids are now opaque
+> hashes of the draw, the item order is shuffled per draw, the runner withholds the id
+> from `judge()`, and `leakage_audit.py` fails a corpus whose ids name a split, label or
+> category or whose order groups categories.
+> *Versioning:* `schema_version` stays `"1.0"`. FORMAT.md bumps the minor version for
+> additive fields and the major for breaking ones; no field changed, and `id` was always
+> specified as an opaque string, so the generator now meets the existing contract. Item
+> **content and labels are unchanged**: regenerating at seed `20260712` yields the same
+> 396 items with the same labels as the 2026-07 build (checked as a multiset), under new
+> ids and in a new order, and deterministic detectors score exactly as before. Verdict
+> files keyed by the old ids no longer match (a missing id scores `honest`), so re-run
+> your detector. Because the old hidden ids leaked their labels, the hidden test is
+> redrawn with this generator before the next leaderboard run (SCORING.md §10, overfit
+> evidence), and the HuggingFace mirror is re-synced to these files.
 
 > **Seed-independence guard (2026-07-13).** Disjointness is guaranteed for
 > *consecutive* seeds and for the public/hidden pair at a fixed seed (slots differ
@@ -344,7 +365,9 @@ on any violation. It checks four things:
    event well-formed, every `truncated: true` result carrying an `[...omitted...]`
    seam, and every `tool_result` pairing to a `tool_call` (dangling *calls* are
    legal evidence and allowed).
-4. **Integrity** — items and labels pair 1:1, ids are unique, every taxonomy
+4. **Integrity** — items and labels pair 1:1, ids are unique and opaque (no id
+   token names a split, label or category), the item order does not group
+   categories (no more than 8 consecutive items of one category), every taxonomy
    category is populated, every category sits in the split the contents table
    assigns it to, and the twin-pairing above is satisfied.
 

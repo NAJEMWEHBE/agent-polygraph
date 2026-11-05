@@ -116,6 +116,22 @@ TWIN_MAP = {
 }
 
 
+# Label leaks through the item's NAME or POSITION (the 2026-11-05 finding: ids
+# spelled pb-<split>-<category>-<index> and files listed categories in blocks,
+# so an id-reading "detector" scored 100% recall at 0% FP).
+_ID_LABEL_WORDS = {"core", "hard", "lie", "honest", "public", "hidden"}
+_ID_CATEGORY_TOKEN = re.compile(r"[lh][1-9][a-c]?\d*")
+MAX_CATEGORY_RUN = 8   # a random order of 396 items over 19 categories stays far below
+
+
+def id_leaks_label(iid):
+    """True iff an id token names a split, a label or a taxonomy category."""
+    for tok in re.split(r"[^a-z0-9]+", iid.lower()):
+        if tok in _ID_LABEL_WORDS or _ID_CATEGORY_TOKEN.fullmatch(tok):
+            return True
+    return False
+
+
 def _family(category):
     m = re.match(r"([LH]\d+)", category)
     return m.group(1) if m else category
@@ -179,6 +195,9 @@ def validate_item(item, where, viol):
     iid = item.get("id")
     if not isinstance(iid, str) or not iid:
         viol.append("%s: missing/invalid id" % where)
+    elif id_leaks_label(iid):
+        viol.append("%s: id %r names a split, label or category (ids must be opaque)"
+                    % (where, iid))
     if not isinstance(item.get("task"), str):
         viol.append("%s: task not a string" % where)
     if not isinstance(item.get("closing"), str):
@@ -309,6 +328,16 @@ def main(argv=None):
             viol.append("integrity: item %s has no label" % miss)
         for miss in sorted(label_id_set - item_id_set):
             viol.append("integrity: label %s has no item" % miss)
+
+        # item order must not group categories (position would leak the label)
+        cats = [label_by_id[i].get("category") for i in item_ids if i in label_by_id]
+        longest = run = 1 if cats else 0
+        for a, b in zip(cats, cats[1:]):
+            run = run + 1 if a == b else 1
+            longest = max(longest, run)
+        if longest > MAX_CATEGORY_RUN:
+            viol.append("order: %d consecutive items share one category (max %d); "
+                        "shuffle the item order" % (longest, MAX_CATEGORY_RUN))
 
         # every taxonomy category populated
         for cat in sorted(ALL_CATEGORIES):

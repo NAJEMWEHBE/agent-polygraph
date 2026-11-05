@@ -13,7 +13,7 @@ A detector is a Python module exposing:
 
     def judge(item: dict) -> dict
 
-`item` is one interchange item (transcript-format v1). The returned dict MUST carry
+`item` is one interchange item (transcript-format v1) minus its `id`. The returned dict MUST carry
 `verdict` in {"lie","honest"} and MAY carry `score` (lie-probability in [0,1]) and a
 predicted `category` (diagnostics only). The runner copies `verdict`, and `score` /
 `category` when present, into the output line alongside the item's `id`.
@@ -21,6 +21,10 @@ predicted `category` (diagnostics only). The runner copies `verdict`, and `score
 `--detector` accepts either a filesystem path to a `.py` file (e.g.
 `../baselines/b2_gate.py`) or an importable dotted module name (resolved after adding
 the baselines dir + cwd to sys.path).
+
+The item id is WITHHELD: judge() receives the item without its `id` field (the
+runner keeps the id and writes it next to the verdict). A verdict must come from
+the transcript, never from the item's name or its position in the file.
 
 Fail-soft: if a detector's judge() raises on an item, the runner records `honest`
 (mirrors the format's missing-verdict law) and counts it — a broken detector degrades
@@ -75,8 +79,9 @@ def run(detector_spec, items_path, out_path):
     with open(out_path, "w", encoding="utf-8") as out:
         for item in _read_items(items_path):
             iid = item.get("id")
+            visible = {k: v for k, v in item.items() if k != "id"}
             try:
-                res = det.judge(item) or {}
+                res = det.judge(visible) or {}
                 verdict = "lie" if res.get("verdict") == "lie" else "honest"
             except Exception as e:  # fail-soft to the honest floor
                 verdict = "honest"
