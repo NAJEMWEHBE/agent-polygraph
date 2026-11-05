@@ -141,5 +141,110 @@ class TestOpenInferenceStatus(unittest.TestCase):
                 self.assertEqual(OI.verify_spans(spans).verdict, "honest")
 
 
+class _FakeSpan:
+    def __init__(self, trace_id, exported):
+        self.trace_id = trace_id
+        self._exported = exported
+
+    def export(self):
+        return dict(self._exported, trace_id=self.trace_id)
+
+
+def _fake_agents_module(current_trace_id):
+    """Stand-in for the parts of the `agents` package the wiring touches."""
+    import types
+    mod = types.ModuleType("agents")
+
+    class GuardrailFunctionOutput:
+        def __init__(self, output_info, tripwire_triggered):
+            self.output_info = output_info
+            self.tripwire_triggered = tripwire_triggered
+
+    def output_guardrail(func=None, *, name=None):
+        def wrap(f):
+            f.guardrail_name = name
+            return f
+        return wrap(func) if func is not None else wrap
+
+    mod.GuardrailFunctionOutput = GuardrailFunctionOutput
+    mod.output_guardrail = output_guardrail
+    mod.get_current_trace = lambda: types.SimpleNamespace(trace_id=current_trace_id)
+    return mod
+
+
+class TestAgentsSdkWiring(unittest.TestCase):
+    """PolygraphTracingProcessor + make_output_guardrail: collect each trace's
+    spans and judge the agent's final output against them."""
+
+    LIE = {"task": "deploy", "events": [
+        {"type": "tool_call", "call_id": "c1", "name": "deploy", "arguments": {}},
+        {"type": "tool_result", "call_id": "c1", "is_error": True, "truncated": False,
+         "content": "permission denied"}], "closing": ""}
+
+    def _processor_with(self, item, trace_id):
+        proc = OA.PolygraphTracingProcessor()
+        for sp in RT.synth_agents(item):
+            proc.on_span_start(_FakeSpan(trace_id, sp))
+            proc.on_span_end(_FakeSpan(trace_id, sp))
+        return proc
+
+    def _guardrail(self, proc, trace_id, **kw):
+        fake = _fake_agents_module(trace_id)
+        saved = sys.modules.get("agents")
+        sys.modules["agents"] = fake
+        try:
+            return OA.make_output_guardrail(proc, **kw)
+        finally:
+            if saved is None:
+                sys.modules.pop("agents", None)
+            else:
+                sys.modules["agents"] = saved
+
+    def test_block_mode_trips_on_a_lie_in_the_current_trace(self):
+        proc = self._processor_with(self.LIE, "trace_a")
+        g = self._guardrail(proc, "trace_a", mode="block")
+        out = g(None, None, "Done -- deployed successfully.")
+        self.assertTrue(out.tripwire_triggered)
+        self.assertEqual(out.output_info["verdict"], "lie")
+        self.assertEqual(g.guardrail_name, "agent_polygraph")
+
+    def test_audit_mode_reports_but_never_trips(self):
+        proc = self._processor_with(self.LIE, "trace_a")
+        out = self._guardrail(proc, "trace_a")(None, None, "Done -- deployed successfully.")
+        self.assertFalse(out.tripwire_triggered)
+        self.assertEqual(out.output_info["verdict"], "lie")
+
+    def test_spans_of_another_trace_are_not_used(self):
+        proc = self._processor_with(self.LIE, "trace_a")
+        out = self._guardrail(proc, "trace_b", mode="block")(None, None, "Done -- deployed.")
+        self.assertFalse(out.tripwire_triggered)
+
+    def test_trace_end_frees_its_spans(self):
+        import types
+        proc = self._processor_with(self.LIE, "trace_a")
+        self.assertTrue(proc.spans("trace_a"))
+        proc.on_trace_end(types.SimpleNamespace(trace_id="trace_a"))
+        self.assertEqual(proc.spans("trace_a"), [])
+
+    def test_processor_keeps_a_bounded_number_of_traces(self):
+        proc = OA.PolygraphTracingProcessor(max_traces=2)
+        for t in ("t1", "t2", "t3"):
+            proc.on_span_end(_FakeSpan(t, {"span_data": {"type": "custom"}}))
+        self.assertEqual((proc.spans("t1"), len(proc.spans("t3"))), ([], 1))
+
+    def test_missing_sdk_raises_a_clear_error(self):
+        saved = sys.modules.get("agents")
+        sys.modules["agents"] = None          # makes `import agents` fail
+        try:
+            with self.assertRaises(ImportError) as cm:
+                OA.make_output_guardrail(OA.PolygraphTracingProcessor())
+            self.assertIn("openai-agents", str(cm.exception))
+        finally:
+            if saved is None:
+                sys.modules.pop("agents", None)
+            else:
+                sys.modules["agents"] = saved
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
