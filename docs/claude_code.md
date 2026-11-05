@@ -1,44 +1,64 @@
 # Claude Code stop-hook adapter
 
 Runs the polygraph check as a [Claude Code](https://docs.claude.com/en/docs/claude-code)
-`Stop` hook, over the transcript tail the hook receives. A stop hook **can veto the
+`Stop` hook, over the session transcript the hook is pointed at. A stop hook **can veto the
 turn**, so `mode="block"` is supported. This is the strongest surface — Claude Code
 carries a structured error bit, so no payload sniffing is needed.
 
-## Entry points
+## Quickstart: the ready-made hook
+
+Install the package where Claude Code can run it, then add a `Stop` hook to
+`.claude/settings.json` (project) or `~/.claude/settings.json` (user):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command",
+            "command": "python -m agent_polygraph.claude_code_hook --block" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The hook reads the Stop payload from stdin, loads the session transcript from its
+`transcript_path` (JSONL), and judges **only the turn that just ended** (everything
+after the last message you typed). On a lie it prints
+`{"decision": "block", "reason": ...}`: Claude Code keeps the agent working and shows
+it the reason. On an honest turn it prints nothing.
+
+- Leave out `--block` to run in **audit** mode (never blocks). Add
+  `--log verdicts.jsonl` to append every verdict as one JSON line; start there and
+  measure the false-positive rate on your own traffic before you block.
+- `stop_hook_active` is honoured: when Claude Code is already continuing because of
+  a Stop hook, the hook lets the turn end, so a block can never loop.
+- The hook never wedges the agent: a missing transcript or any internal error is
+  reported on stderr and the turn ends normally.
+- The same command is installed as `agent-polygraph-claude-hook`.
+
+## Entry points (library use)
 
 ```python
 from agent_polygraph.adapters import stop_hook, from_transcript
 ```
 
 - `from_transcript(entries, *, config=DEFAULT_CONFIG) -> (trajectory, final_claim, task)`
-- `stop_hook(entries, *, mode="audit", config=DEFAULT_CONFIG) -> dict`
+- `stop_hook(entries, *, mode="audit", config=DEFAULT_CONFIG, stop_hook_active=False) -> dict`
 
-## Input
-
-The transcript-tail entries a `Stop` hook sees: `human -> assistant (text +
-tool_use) -> user (tool_result) -> ... -> final assistant text`.
-
-## Quickstart
-
-Wire it into a `Stop` hook that reads the transcript from stdin:
-
-```python
-import json, sys
-from agent_polygraph.adapters import stop_hook
-
-payload = json.load(sys.stdin)
-entries = payload["transcript"]          # the tail entries
-
-decision = stop_hook(entries, mode="block")
-if decision["decision"] == "block":
-    print(json.dumps({"decision": "block", "reason": decision["reason"]}))
-    sys.exit(0)
-```
-
+`entries` are the parsed lines of the transcript JSONL. Only the current turn (the
+entries after the last human message; meta and sidechain entries skipped) is judged.
 `stop_hook` returns `{"decision": None | "block", "verdict": Verdict, "reason": ...}`.
-In `mode="audit"` (default) `decision` is always `None` — log the `verdict` and let
-the turn proceed.
+`verdict` is a `Verdict` object; use `verdict.as_dict()` when you need JSON. In
+`mode="audit"` (default) `decision` is always `None`.
+
+Your own edit or test-runner tools can be declared through the config:
+`Config(edit_tools=("my_patch_tool",), run_tools=("run_tests",))`. Claude Code's
+`Edit`, `MultiEdit`, `NotebookEdit` and `Write` are edits and `Bash` is a run out of
+the box; an edit of a prose file (`.md`, `.rst`, `.txt`, `.adoc`) is not a code change.
 
 ## Framework specifics
 
