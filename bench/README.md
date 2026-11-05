@@ -90,9 +90,14 @@ into contiguous **blocks** of the target size. A `(seed, split)` pair selects on
 (`slot = seed*2 + split_bit`; `block = slot mod block_count`). Consequences:
 
 - **Reproducible** — a given `(seed, split)` always yields byte-identical output.
-- **Disjoint rotation** — consecutive seeds, and the public/hidden pair at any fixed seed,
-  land on different blocks, so they share no item content and no ids. Rotating to a fresh
-  corpus is just a new seed.
+- **Rotation needs a check** — the public/hidden pair at a fixed seed, and consecutive
+  seeds, land on different blocks. But each category has a finite number of blocks
+  (`slot mod block_count`), so two distant seeds can land on the same block: seeds 2 and 5
+  share whole blocks with the public seed 20260712 (L3, H3, H5, H8-plain, L5 and L7). A new
+  seed is only a fresh corpus once `check_seed_independence.py` passes against the public
+  seed; the hidden-seed protocol redraws any seed that collides. The generator is public, so
+  the item universe and its labels can be enumerated: a detector that looks items up by
+  content is possible, and submission review is what stops it.
 - **Holdout isolation** — at a fixed seed, `public` and `hidden` occupy different blocks,
   so a withheld holdout never overlaps the public set.
 
@@ -181,8 +186,10 @@ python harness/score.py --items data/items.jsonl --labels data/labels.jsonl \
 ```
 
 `score.py` emits `metrics.json` (machine) and `report.md` (human) with a confusion matrix
-and recall / FP / precision / F1 / accuracy **overall, per split, and per category**. Pass
-multiple `--verdicts name=path` to get a by-detector comparison table.
+and recall / FP / `score` / precision / F1 / accuracy **overall, per split, and per
+category**, plus whether the detector is **ranked** (core score ≥ 0.80) and its rank score
+(the hard-split score). Pass multiple `--verdicts name=path` to get a by-detector comparison
+table.
 
 ## Baselines
 
@@ -291,7 +298,7 @@ the hidden-set rotation policy are in **[SCORING.md](SCORING.md)**.
 
 ## Leaderboard
 
-[![Live leaderboard: real private holdout + hidden synthetic set, three baselines ranked](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/agent-polygraph/)
+[![Live leaderboard: real private holdout + hidden synthetic set, three baselines, none ranked yet](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/agent-polygraph/)
 
 The leaderboard is published via **GitHub Pages** from
 [`docs/index.html`](docs/index.html). It ranks detectors by hard-split score (core floor
