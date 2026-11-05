@@ -29,13 +29,13 @@ Judge tier: sync ``Judge`` protocol + ``escalate`` policy; ZERO judges shipped.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, List, Optional, Tuple, Union
 
 from . import detector as _DETECTOR
 from .events import (Message, ToolCall, ToolResult, normalize_event, to_item,
-                     DEFAULT_ERROR_PATTERNS)
-from .judge import Judge, should_escalate as _should_escalate
+                     DEFAULT_ERROR_PATTERNS, looks_like_error)
+from .judge import Judge, ESCALATE_POLICIES, should_escalate as _should_escalate
 
 # The one detector per package; detector.py is never modified. Its version is
 # the package version (wired in pyproject via detector.__version__).
@@ -93,34 +93,94 @@ class Config:
                                     ``re:``-prefixed regexes).
     * ``redact_paths``           -- scrub host paths / traceback frames from
                                     re-emitted content (ON by default).
+    * ``edit_tools``             -- extra tool names (case-insensitive) that
+                                    count as a file edit for the L3 check, on
+                                    top of the built-in ones (``write_file``,
+                                    Claude Code ``Edit`` / ``MultiEdit`` /
+                                    ``NotebookEdit``, ...).
+    * ``run_tools``              -- extra tool names that count as a verifying
+                                    run after an edit (built-in: ``bash``,
+                                    ``shell``, ...), e.g. your ``run_tests``.
     """
     error_sniff: bool = True
     error_patterns: Tuple[str, ...] = DEFAULT_ERROR_PATTERNS
     extra_truncation_markers: Tuple[Any, ...] = ()
     redact_paths: bool = True
+    edit_tools: Tuple[str, ...] = ()
+    run_tools: Tuple[str, ...] = ()
 
 
 DEFAULT_CONFIG = Config()
 
 
+def _adapter_config(config: Config) -> Config:
+    """The config an adapter hands to verify(): the caller's tool roles, with
+    sniffing off -- each adapter has already recovered the error bit the way
+    its framework needs (structured bit, or a payload sniff it graded)."""
+    return replace(config, error_sniff=False)
+
+
+def _sniffed(e: Any, patterns: Tuple[str, ...]) -> Any:
+    """A ToolResult with no error bit whose body reads as an error -> a copy
+    with the bit set and the degraded-signal provenance recorded."""
+    if (isinstance(e, ToolResult) and not e.is_error
+            and looks_like_error(_text(e.content), patterns)):
+        return replace(e, is_error=True, error_sniffed=True)
+    return e
+
+
 # ---------------------------------------------------------------------------
 # the locked entry point
 # ---------------------------------------------------------------------------
+def _text(value: Any) -> str:
+    """A claim / task as text: a string, None, or a list of content blocks
+    (``{"type": "text", "text": ...}`` dicts or plain strings, as chat APIs
+    return them); non-text blocks are dropped."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        parts = []
+        for b in value:
+            if isinstance(b, str):
+                parts.append(b)
+            elif isinstance(b, dict) and b.get("type", "text") == "text":
+                parts.append(str(b.get("text") or ""))
+        return "\n".join(p for p in parts if p)
+    return str(value)
+
+
 def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
-           final_claim: str = "",
-           task: str = "",
+           final_claim: Any = "",
+           task: Any = "",
            *,
            judge: Optional[Judge] = None,
-           escalate: str = "honest_only") -> Verdict:
+           escalate: str = "honest_only",
+           config: Optional[Config] = None) -> Verdict:
     """Does ``final_claim`` contradict the trajectory's own tool evidence?
 
     Pure and synchronous. ``trajectory`` may mix SDK event dataclasses and raw
     bench dicts. ``judge``/``escalate`` are the documented judge-tier extension
     point (no judge ships in v0.1; the dangling-call miss is its motivating case).
+
+    ``config`` (optional): with no config the ``is_error`` bits you pass are
+    trusted as given. Pass a ``Config`` to add your own edit / run tool names
+    and, when ``config.error_sniff`` is on (the default), to treat a result whose
+    body reads as an error (``"ERROR: ..."``, a traceback) as failed even without
+    the bit -- graded 0.7 confidence, like the adapters' sniffing.
     """
+    if escalate not in ESCALATE_POLICIES:
+        raise ValueError(f"escalate must be one of {ESCALATE_POLICIES}, got {escalate!r}")
+    final_claim, task = _text(final_claim), _text(task)
     events = [normalize_event(e) for e in (trajectory or [])]
+    if config is not None and config.error_sniff:
+        events = [_sniffed(e, config.error_patterns) for e in events]
     item = to_item(events, final_claim, task)
-    det = _DETECTOR.detect(item)
+    det = _DETECTOR.detect(
+        item,
+        edit_tools=config.edit_tools if config is not None else (),
+        run_tools=config.run_tools if config is not None else ())
 
     findings = tuple(Finding(f.check, f.detail) for f in det.findings)
 
@@ -148,7 +208,10 @@ def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
     )
 
     if judge is not None and _should_escalate(escalate, result):
-        replacement = judge.judge(events, final_claim or "", task or "", result)
+        replacement = judge.judge(events, final_claim, task, result)
         if replacement is not None:
+            if not isinstance(replacement, Verdict):
+                raise TypeError("a Judge must return an agent_polygraph.Verdict or None, "
+                                f"got {type(replacement).__name__}")
             return replacement
     return result

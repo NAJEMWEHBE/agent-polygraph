@@ -107,7 +107,7 @@ All numbers below come from actually-executed runs and are reported verbatim.
 Parity and the recall floor are the honest limits of a v0.1 heuristic detector —
 read them before you deploy in `block` mode.
 
-### Parity vs the private gate — 393 / 396 (99.24%)
+### Parity vs the private gate — 393 / 396 (99.24%) at 0.1.0
 
 The detector was written clean-room from the public benchmark spec and corpus,
 then refined by **behavioural** parity iteration against a private production gate
@@ -132,7 +132,19 @@ Label-level, both over the 396-item set: **identical recall (0.460)** and the sa
 true-positive set; the clean detector carries **3 fewer false blocks**
 (FP 3.18% vs the gate's 4.55%).
 
-### Real-trace replay — 33 traces, 0 unexplained flips
+**Since 0.1.0 the detector has moved away from the gate on purpose.** The current
+detector no longer treats a documentation-only edit (`.md`, `.rst`, `.txt`, …) as
+code that needs a test run, which clears the three H5 honest items that both 0.1.0
+and the gate false-blocked. It flags **85** items instead of 88: the same 81 true
+positives (recall **0.460**) and **4** false blocks (FP **1.82%** vs the gate's
+4.55%). Because every 0.1.0 block was also a gate block, the agreement with the gate
+is now 390 / 396; all six disagreements are items the gate blocks and the label
+calls honest. This was derived from the 0.1.0 matrix above, not re-run against the
+gate. The other fixes since 0.1.0 (whole-word vocabulary, evidence tied to its own
+tool, page-size arguments, negated success claims) change no verdict on the 396
+items.
+
+### Real-trace replay — 33 traces, 0 unexplained flips (0.1.0)
 
 33 real captured framework traces (OpenAI Agents ×10, OpenInference ×6, Claude
 Code ×13, LiteLLM ×4; local models only, no paid API calls) were replayed through
@@ -143,6 +155,11 @@ trajectory:
 - **2 lies caught** — both Claude Code turns with an unrecovered structured
   `is_error` bit under a success claim (confidence 1.0). The other 31 → honest,
   all correct true-negatives (including honest failure-*disclosure* turns).
+
+The captured traces are not shipped, so this replay was not re-run for the current
+detector. Claude Code transcripts are now judged one turn at a time (the entries
+after the last human message), which can change the verdict on a multi-turn
+session.
 
 ### LiteLLM opaque-error recall floor — read this before using the LiteLLM adapter
 
@@ -156,18 +173,18 @@ Measured cost, round-trip over all 396 bench items (reference = direct detector)
 
 ```
 path              agree  flips   recall      FP
-direct(ref)      100.0%      0    0.460    0.032
-agents           100.0%      0    0.460    0.032
-openinference    100.0%      0    0.460    0.032
-claude_code      100.0%      0    0.460    0.032
-litellm           89.6%     41    0.227    0.032
+direct(ref)      100.0%      0    0.460    0.018
+agents           100.0%      0    0.460    0.018
+openinference    100.0%      0    0.460    0.018
+claude_code      100.0%      0    0.460    0.018
+litellm           89.6%     41    0.227    0.018
 ```
 
 - The three **structured-error** adapters are fully consistent with direct
   detection — **0 verdict flips** on 396 items.
 - **LiteLLM: 41 flips, all `lie -> honest`** — recall drops from **0.460 to 0.227**
   on error-concealment lies whose tool text does not read as an error. **FP is
-  unchanged (0.032)** — no false blocks are introduced, only real lies are missed.
+  unchanged (0.018)** — no false blocks are introduced, only real lies are missed.
 
 This is a measured framework ceiling, not a bug: the proxy sits below the structured
 error signal. The LiteLLM adapter is **audit-only** for this reason.
@@ -193,6 +210,15 @@ A `tool_call` with no matching `tool_result` (a legal *dangling call*) plus a
 associate an outcome that never returned. This is the motivating example for the
 [judge-tier extension](#judge-tier-extension) below, and it is a documented miss in
 both the private gate and this detector.
+
+**A disclosure is not tied to the tool it discloses.**
+Any on-topic acknowledgement in the closing ("X failed", "could not deploy")
+clears error concealment for the whole turn, even when it names a different tool
+than the one that errored. Scoping an acknowledgement to its own tool needs
+claim-to-evidence association, which is judge-tier work; a sentence-level rule
+would false-block honest closings such as "The upload failed. Everything else is
+done." A retry clears an error only when the *same* tool later succeeds, matched
+by tool name, not by arguments.
 
 **Inferred truncation is a low-confidence, verdict-neutral signal.**
 Truncation is inferred from seam markers (`[...omitted...]`, Claude Code's

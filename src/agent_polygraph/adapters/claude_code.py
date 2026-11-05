@@ -27,7 +27,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..events import Message, ToolCall, ToolResult, matches_truncation, redact
-from ..verify import Config, DEFAULT_CONFIG, verify
+from ..verify import Config, DEFAULT_CONFIG, _adapter_config, verify
 
 # Claude Code's real inline truncation marker: "... [N lines truncated] ...".
 _CC_TRUNC_MARKER = re.compile(r"\[\d+\s+lines truncated\]")
@@ -59,23 +59,58 @@ def _message(entry: Dict[str, Any]) -> Dict[str, Any]:
     return m if isinstance(m, dict) else {}
 
 
+def _human_text(entry: Dict[str, Any]) -> Optional[str]:
+    """The prompt text if ``entry`` is a message the human typed, else None.
+
+    A human turn is a ``user`` entry whose content is a string, or a list of
+    text blocks with no ``tool_result`` (tool results also arrive as ``user``
+    entries but are part of the agent's turn)."""
+    if entry.get("type") != "user" or entry.get("isMeta"):
+        return None
+    content = _message(entry).get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list) and content:
+        if any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+            return None
+        return _text_from_content(content)
+    return None
+
+
+def _current_turn(entries: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str]:
+    """(entries of the turn being judged, its prompt). A Stop hook judges ONE
+    turn: everything after the last human message. Meta entries (slash-command
+    caveats) and sidechain (subagent) entries are not part of it."""
+    kept = [e for e in (entries or [])
+            if isinstance(e, dict) and "_meta" not in e
+            and not e.get("isSidechain") and not e.get("isMeta")]
+    start, task = 0, ""
+    for i, e in enumerate(kept):
+        text = _human_text(e)
+        if text is not None:
+            start, task = i + 1, text
+    return kept[start:], task
+
+
 def from_transcript(entries: List[Dict[str, Any]], *,
                     config: Config = DEFAULT_CONFIG
                     ) -> Tuple[List[Any], str, str]:
     """Claude Code transcript entries -> (trajectory, final_claim, task).
 
-    final_claim = the LAST assistant text block(s). task = the FIRST human user
-    text (best-effort; the detector does not consume task).
+    Only the current turn is read: the entries after the LAST human message
+    (an earlier turn's handled error must not count against a later, unrelated
+    claim). final_claim = the turn's last assistant text. task = that human
+    message (best-effort; the detector does not consume task).
     """
     markers = _DEFAULT_TRUNC_MARKERS + tuple(config.extra_truncation_markers)
-    task = ""
+    entries, task = _current_turn(entries)
     traj: List[Any] = []
     last_assistant_text = ""
     # collect truncatedByTokenCap tool_use_ids from file-read attachments
     structured_trunc_ids: set = set()
 
     # first pass: structured truncation flags on attachments
-    for e in entries or []:
+    for e in entries:
         if not isinstance(e, dict) or e.get("type") != "attachment":
             continue
         att = e.get("attachment") or {}
@@ -84,9 +119,7 @@ def from_transcript(entries: List[Dict[str, Any]], *,
             if tid:
                 structured_trunc_ids.add(tid)
 
-    for e in entries or []:
-        if not isinstance(e, dict) or "_meta" in e:
-            continue
+    for e in entries:
         etype = e.get("type")
         if etype == "attachment":
             continue  # side channel; hook-block errors are NOT tool failures (ruling)
@@ -96,11 +129,7 @@ def from_transcript(entries: List[Dict[str, Any]], *,
         content = msg.get("content")
 
         if etype == "user":
-            # a user entry is either the human task (string) or tool_result blocks
-            if isinstance(content, str):
-                if not task and content.strip():
-                    task = content
-                continue
+            # inside the turn, a user entry carries tool_result blocks
             if isinstance(content, list):
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "tool_result":
@@ -154,19 +183,26 @@ def from_transcript(entries: List[Dict[str, Any]], *,
 # ---------------------------------------------------------------------------
 def stop_hook(entries: List[Dict[str, Any]], *,
               mode: str = "audit",
-              config: Config = DEFAULT_CONFIG) -> Dict[str, Any]:
+              config: Config = DEFAULT_CONFIG,
+              stop_hook_active: bool = False) -> Dict[str, Any]:
     """Run the polygraph check as a Claude Code Stop hook.
 
     Returns a hook-decision dict. ``mode="block"`` emits ``{"decision":"block",
-    "reason":...}`` on a lie (Claude Code halts / feeds the reason back);
-    ``mode="audit"`` never blocks. ``verdict`` rides along for logging.
+    "reason":...}`` on a lie (Claude Code keeps the agent working and feeds it
+    the reason); ``mode="audit"`` never blocks. ``verdict`` (a ``Verdict``
+    object -- use ``verdict.as_dict()`` for JSON) rides along for logging.
+
+    Pass the Stop payload's ``stop_hook_active``: when it is true, Claude Code
+    is already continuing because of a Stop hook, and blocking again could loop
+    forever, so the turn is allowed to end (the verdict is still computed).
+    For the full hook, run ``python -m agent_polygraph.claude_code_hook``.
     """
     if mode not in ("audit", "block"):
         raise ValueError(f"mode must be 'audit' or 'block', got {mode!r}")
     traj, claim, task = from_transcript(entries, config=config)
-    v = verify(traj, claim, task)
+    v = verify(traj, claim, task, config=_adapter_config(config))
     out: Dict[str, Any] = {"decision": None, "verdict": v}
-    if mode == "block" and v.is_lie:
+    if mode == "block" and v.is_lie and not stop_hook_active:
         reason = "; ".join(f.detail for f in v.evidence) or "honesty gate: lie detected"
         out["decision"] = "block"
         out["reason"] = reason

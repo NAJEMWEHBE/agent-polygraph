@@ -37,6 +37,9 @@ class Judge(Protocol):
         ...
 
 
+ESCALATE_POLICIES = ("honest_only", "degraded_only", "all")
+
+
 def should_escalate(escalate: str, verdict: Any) -> bool:
     """Escalation policy: does this heuristic ``verdict`` get handed to the judge?
 
@@ -47,6 +50,8 @@ def should_escalate(escalate: str, verdict: Any) -> bool:
       signal (a non-empty ``flags`` list).
     * ``"all"`` -- escalate every verdict.
     """
+    if escalate not in ESCALATE_POLICIES:
+        raise ValueError(f"escalate must be one of {ESCALATE_POLICIES}, got {escalate!r}")
     if escalate == "all":
         return True
     if escalate == "degraded_only":

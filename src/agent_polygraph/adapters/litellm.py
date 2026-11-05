@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Tuple
 
 from ..events import (Message, ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
-from ..verify import Config, DEFAULT_CONFIG, Verdict, verify
+from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
 # LiteLLM proxy has NO truncation signal (CAPTURE-NOTES). No default marker;
 # supply one via Config.extra_truncation_markers. Any such mark is INFERRED.
@@ -42,33 +42,68 @@ _FUNC_REPR = re.compile(r"name=(['\"])(?P<name>.*?)\1")
 _FUNC_ARGS = re.compile(r"arguments=(['\"])(?P<args>.*?)\1")
 
 
+def _get(obj: Any, key: str) -> Any:
+    """Read ``key`` from a dict or an attribute object (LiteLLM hands hooks
+    pydantic ``ModelResponse`` / ``Message`` / ``ChatCompletionMessageToolCall``
+    objects, and some deployments plain dicts)."""
+    if isinstance(obj, dict):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _content_text(content: Any) -> str:
+    """Message content as text: a string, or a list of content blocks."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, (list, tuple)):
+        parts = []
+        for b in content:
+            if isinstance(b, str):
+                parts.append(b)
+            elif _get(b, "type") in (None, "text"):
+                parts.append(str(_get(b, "text") or ""))
+        return "\n".join(p for p in parts if p)
+    return ""
+
+
 def _parse_function(fn: Any) -> Tuple[str, Any]:
-    """(name, arguments) from a tool_call.function that may be a dict or a
-    ``Function(arguments=..., name=...)`` repr string."""
-    if isinstance(fn, dict):
-        return fn.get("name") or "?", fn.get("arguments", "")
+    """(name, arguments) from a tool_call.function that may be a dict, an
+    attribute object, or a ``Function(arguments=..., name=...)`` repr string."""
     if isinstance(fn, str):
         name_m = _FUNC_REPR.search(fn)
         args_m = _FUNC_ARGS.search(fn)
         return (name_m.group("name") if name_m else "?",
                 args_m.group("args") if args_m else "")
-    return "?", ""
+    if fn is None:
+        return "?", ""
+    args = _get(fn, "arguments")
+    return _get(fn, "name") or "?", "" if args is None else args
 
 
 def _final_claim(response: Any) -> str:
-    """Extract assistant text from a response / response_message object or dict."""
+    """Assistant text from a response: a string, a dict, a ``ModelResponse``-
+    style object (``.choices[0].message.content``), a bare message
+    (``.content``), or anything with ``model_dump()``."""
     if response is None:
         return ""
     if isinstance(response, str):
         return response
-    if isinstance(response, dict):
-        if "content" in response and isinstance(response["content"], str):
-            return response["content"]
-        choices = response.get("choices")
-        if isinstance(choices, list) and choices:
-            msg = choices[0].get("message") if isinstance(choices[0], dict) else None
-            if isinstance(msg, dict):
-                return msg.get("content") or ""
+    content = _get(response, "content")
+    if isinstance(content, (str, list, tuple)):
+        return _content_text(content)
+    choices = _get(response, "choices")
+    if isinstance(choices, (list, tuple)) and choices:
+        msg = _get(choices[0], "message")
+        if msg is not None:
+            return _content_text(_get(msg, "content"))
+    dump = getattr(response, "model_dump", None)
+    if not isinstance(response, dict) and callable(dump):
+        try:
+            dumped = dump()
+        except Exception:  # a foreign object's serializer must not break the audit
+            return ""
+        if isinstance(dumped, dict):
+            return _final_claim(dumped)
     return ""
 
 
@@ -84,10 +119,10 @@ def from_litellm(messages: List[Dict[str, Any]],
     seen_tool_ids: set = set()
 
     for m in messages or []:
-        if not isinstance(m, dict):
+        if m is None or isinstance(m, (str, bytes)):
             continue
-        role = m.get("role")
-        content = m.get("content")
+        role = _get(m, "role")
+        content = _get(m, "content")
 
         if role == "user":
             if not task and isinstance(content, str) and content.strip():
@@ -95,15 +130,16 @@ def from_litellm(messages: List[Dict[str, Any]],
         elif role == "assistant":
             if isinstance(content, str) and content.strip():
                 traj.append(Message(redact(content) if config.redact_paths else content))
-            for tc in m.get("tool_calls") or []:
-                if not isinstance(tc, dict):
+            for tc in _get(m, "tool_calls") or []:
+                if tc is None or isinstance(tc, (str, bytes)):
                     continue
-                cid = tc.get("id") or ""
-                name, args = _parse_function(tc.get("function"))
+                cid = _get(tc, "id") or ""
+                name, args = _parse_function(_get(tc, "function"))
                 traj.append(ToolCall(cid, name=name, arguments=args))
         elif role == "tool":
-            cid = m.get("tool_call_id") or ""
-            body = content if isinstance(content, str) else _stringify(content)
+            cid = _get(m, "tool_call_id") or ""
+            body = (_content_text(content) if isinstance(content, (str, list, tuple))
+                    else _stringify(content))
             seen_tool_ids.add(cid)
             is_error = error_sniffed = False
             # OPAQUE errors: sniff-only recovery (always degraded)
@@ -159,4 +195,4 @@ def post_call_guardrail(data: Dict[str, Any],
     if resp is None:
         resp = (data or {}).get("response") or (data or {}).get("response_message")
     traj, claim, task = from_litellm(messages, resp, config=config)
-    return verify(traj, claim, task)
+    return verify(traj, claim, task, config=_adapter_config(config))

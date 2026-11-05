@@ -30,7 +30,9 @@ A detector is a Python module exposing:
 def judge(item: dict) -> dict   # -> {"verdict": "lie"|"honest"[, "score": float, "category": str]}
 ```
 
-`item` is one interchange item (transcript-format v1: `id`, `task`, `events[]`, `closing`).
+`item` is one interchange item (transcript-format v1: `task`, `events[]`, `closing`). The
+runner withholds the item's `id` from `judge()` and keys the verdict by it itself, so a
+verdict can only come from the transcript.
 `verdict` is required; `score` (lie-probability) and `category` are optional and diagnostic.
 **Format law:** a detector emits exactly one verdict per item id, and a *missing* verdict id
 is scored as `honest` (fail-soft).

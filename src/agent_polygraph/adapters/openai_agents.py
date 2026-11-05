@@ -33,7 +33,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..events import (ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
-from ..verify import Config, DEFAULT_CONFIG, Verdict, verify
+from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
 # Agents SDK has NO truncation signal at all (CAPTURE-NOTES). No default marker;
 # a deployment supplies one via Config.extra_truncation_markers. Any such mark is
@@ -171,6 +171,118 @@ def output_guardrail(trace_export: List[Dict[str, Any]],
         raise ValueError(f"mode must be 'audit' or 'block', got {mode!r}")
     traj, parsed_claim, parsed_task = from_openai_agents(trace_export, config=config)
     v = verify(traj, final_claim if final_claim is not None else parsed_claim,
-               task if task is not None else parsed_task)
+               task if task is not None else parsed_task,
+               config=_adapter_config(config))
     tripwire = (mode == "block" and v.is_lie)
     return GuardrailResult(tripwire_triggered=tripwire, output_info=v)
+
+
+# ---------------------------------------------------------------------------
+# Live wiring: a trace processor that keeps each trace's spans, and a ready
+# Agents-SDK output guardrail that judges the run's final output against them.
+# ---------------------------------------------------------------------------
+class PolygraphTracingProcessor:
+    """Duck-typed Agents-SDK ``TracingProcessor`` that keeps the
+    ``span.export()`` dicts of each live trace, keyed by trace id.
+
+    Register it with ``agents.add_trace_processor(proc)``. Spans are recorded
+    when they end; a trace's spans are dropped when the trace ends, and at most
+    ``max_traces`` traces are held (oldest dropped first), so a long-running
+    process never grows without bound. Thread-safe.
+    """
+
+    def __init__(self, max_traces: int = 256):
+        import threading
+        from collections import OrderedDict
+        self._max = max(1, int(max_traces))
+        self._spans: "OrderedDict[str, List[Dict[str, Any]]]" = OrderedDict()
+        self._lock = threading.Lock()
+
+    # -- TracingProcessor interface ----------------------------------------
+    def on_trace_start(self, trace: Any) -> None:
+        pass
+
+    def on_trace_end(self, trace: Any) -> None:
+        tid = getattr(trace, "trace_id", None)
+        with self._lock:
+            self._spans.pop(tid, None)
+
+    def on_span_start(self, span: Any) -> None:
+        pass
+
+    def on_span_end(self, span: Any) -> None:
+        tid = getattr(span, "trace_id", None)
+        try:
+            exported = span.export()
+        except Exception:  # a span that cannot export is skipped, never fatal
+            return
+        if tid is None or not isinstance(exported, dict):
+            return
+        with self._lock:
+            bucket = self._spans.get(tid)
+            if bucket is None:
+                bucket = self._spans[tid] = []
+                while len(self._spans) > self._max:
+                    self._spans.popitem(last=False)
+            else:
+                self._spans.move_to_end(tid)
+            bucket.append(exported)
+
+    def shutdown(self) -> None:
+        with self._lock:
+            self._spans.clear()
+
+    def force_flush(self) -> None:
+        pass
+
+    # -- reading ------------------------------------------------------------
+    def spans(self, trace_id: Any) -> List[Dict[str, Any]]:
+        """A copy of the spans recorded so far for ``trace_id``."""
+        with self._lock:
+            return list(self._spans.get(trace_id, ()))
+
+
+def _output_text(output: Any) -> str:
+    if isinstance(output, str):
+        return output
+    if output is None:
+        return ""
+    dump = getattr(output, "model_dump_json", None)
+    if callable(dump):
+        try:
+            return dump()
+        except Exception:
+            pass
+    return str(output)
+
+
+def make_output_guardrail(processor: PolygraphTracingProcessor, *,
+                          mode: str = "audit",
+                          config: Config = DEFAULT_CONFIG,
+                          name: str = "agent_polygraph") -> Any:
+    """A ready ``@output_guardrail`` for ``Agent(output_guardrails=[...])``.
+
+    It judges the agent's final output against the spans ``processor`` has
+    recorded for the current trace (``agents.get_current_trace()``). In
+    ``mode="block"`` a lie trips the wire and the SDK raises
+    ``OutputGuardrailTripwireTriggered``; ``output_info`` is the verdict dict.
+    Needs the ``openai-agents`` package (imported lazily here).
+    """
+    if mode not in ("audit", "block"):
+        raise ValueError(f"mode must be 'audit' or 'block', got {mode!r}")
+    try:
+        import agents  # the OpenAI Agents SDK
+    except ImportError as e:
+        raise ImportError("make_output_guardrail needs the OpenAI Agents SDK: "
+                          "pip install openai-agents") from e
+
+    def polygraph_guardrail(ctx: Any, agent: Any, output: Any) -> Any:
+        trace = agents.get_current_trace()
+        spans = processor.spans(getattr(trace, "trace_id", None)) if trace else []
+        res = output_guardrail(spans, final_claim=_output_text(output),
+                               mode=mode, config=config)
+        return agents.GuardrailFunctionOutput(
+            output_info=res.output_info.as_dict(),
+            tripwire_triggered=res.tripwire_triggered)
+
+    return agents.output_guardrail(polygraph_guardrail, name=name)

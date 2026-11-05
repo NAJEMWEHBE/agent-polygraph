@@ -32,6 +32,9 @@ classifiers = [
 # Zero runtime dependencies -- standard library only.
 dependencies = []
 
+[project.scripts]
+agent-polygraph-claude-hook = "agent_polygraph.claude_code_hook:main"
+
 [project.optional-dependencies]
 test = ["pytest>=7"]
 
