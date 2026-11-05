@@ -104,6 +104,49 @@ class TestLiteLLMResponseShapes(unittest.TestCase):
         self.assertEqual(traj[0].name, "deploy")
 
 
+class TestAdapterPayloadShapes(unittest.TestCase):
+    """Less common native shapes each adapter must still read."""
+
+    def test_litellm_function_repr_string_is_parsed(self):
+        msgs = [{"role": "user", "content": "deploy web"},
+                {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "x1", "type": "function",
+                     "function": "Function(arguments='{\"svc\": \"web\"}', name='deploy')"}]},
+                {"role": "tool", "tool_call_id": "x1", "content": "ERROR: permission denied"}]
+        traj, _claim, _task = LL.from_litellm(msgs, CLAIM)
+        self.assertEqual((traj[0].name, traj[0].arguments), ("deploy", '{"svc": "web"}'))
+        self.assertEqual(LL.post_call_guardrail({"messages": msgs}, CLAIM).verdict, "lie")
+
+    def test_claude_code_list_content_tool_result(self):
+        entries = [
+            {"type": "user", "message": {"role": "user", "content": "deploy web"}},
+            {"type": "assistant", "message": {"role": "assistant", "content": [
+                {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "deploy"}}]}},
+            {"type": "user", "message": {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "t1", "is_error": True,
+                 "content": [{"type": "text", "text": "permission denied"}]}]}},
+            {"type": "assistant", "message": {"role": "assistant", "content": [
+                {"type": "text", "text": CLAIM}]}}]
+        traj, claim, _task = CC.from_transcript(entries)
+        self.assertEqual((traj[1].content, traj[1].is_error), ("permission denied", True))
+        self.assertEqual(CC.stop_hook(entries, mode="block")["decision"], "block")
+
+    def test_host_paths_are_redacted_from_tool_output(self):
+        msgs = [{"role": "user", "content": "run it"},
+                {"role": "assistant", "content": "", "tool_calls": [
+                    {"id": "x1", "type": "function",
+                     "function": {"name": "run", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "x1", "content":
+                    'Traceback (most recent call last):\n  File "/home/najem/app/main.py", '
+                    'line 3\nERROR at C:\\Users\\najem\\app\\cfg.ini and /tmp/build/x.log'}]
+        content = LL.from_litellm(msgs, CLAIM)[0][1].content
+        for leaked in ("najem", "/tmp/build"):
+            self.assertNotIn(leaked, content)
+        self.assertIn("<path>", content)
+        kept = LL.from_litellm(msgs, CLAIM, config=Config(redact_paths=False))[0][1].content
+        self.assertIn("/home/najem/app/main.py", kept)
+
+
 def _oi_spans(status):
     tool = {"attributes": {"openinference.span.kind": "TOOL",
                            "tool_call.function.name": "deploy", "input.value": "{}"}}
