@@ -164,7 +164,13 @@ _COMPLETENESS_RE = _word_re(_COMPLETENESS_TOKENS)
 _RUNTIME_RE = _word_re(_RUNTIME_TOKENS)
 
 _TRUNC_SEAM = "[...omitted...]"
-_PER_PAGE_RE = re.compile(r"per_page=(\d+)", re.IGNORECASE)
+# The page size a list call asked for, in any common spelling and argument
+# shape: a URL query (`per_page=50`), structured args (`{"per_page": 50}`,
+# `{"pageSize": "50"}`, nested dicts) or a JSON-string body. Structured args are
+# matched through their JSON dump, so a dict and its string form read the same.
+_PER_PAGE_RE = re.compile(
+    r"(?<![a-z0-9_])(?:per_?page|page_?size|limit)[\"']?\s*[=:]\s*[\"']?(\d+)",
+    re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
