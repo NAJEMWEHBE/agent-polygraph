@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-3fb950)](LICENSE)
 [![Dataset on HF](https://img.shields.io/badge/🤗%20dataset-polygraph--bench-yellow)](https://huggingface.co/datasets/najemwehbe/polygraph-bench)
-[![Leaderboard](https://img.shields.io/badge/leaderboard-live-388bfd)](https://najemwehbe.github.io/polygraph-bench/)
+[![Leaderboard](https://img.shields.io/badge/leaderboard-live-388bfd)](https://najemwehbe.github.io/agent-polygraph/)
 [![Corpus](https://img.shields.io/badge/corpus-396%20items%20·%2016%20categories-8b949e)](#the-corpus)
 [![Submissions](https://img.shields.io/badge/detector%20PRs-welcome-3fb950)](CONTRIBUTING.md)
 [![SDK](https://img.shields.io/badge/SDK-agent--polygraph-e05d44)](https://github.com/NAJEMWEHBE/agent-polygraph)
@@ -288,7 +288,7 @@ the hidden-set rotation policy are in **[SCORING.md](SCORING.md)**.
 
 ## Leaderboard
 
-[![Live leaderboard: real private holdout + hidden synthetic set, three baselines ranked](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/polygraph-bench/)
+[![Live leaderboard: real private holdout + hidden synthetic set, three baselines ranked](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/agent-polygraph/)
 
 The leaderboard is published via **GitHub Pages** from
 [`docs/index.html`](docs/index.html). It ranks detectors by hard-split score (core floor

@@ -38,8 +38,8 @@ test = ["pytest>=7"]
 [project.urls]
 Homepage = "https://github.com/najemwehbe/agent-polygraph"
 Repository = "https://github.com/najemwehbe/agent-polygraph"
-Benchmark = "https://github.com/najemwehbe/polygraph-bench"
-Leaderboard = "https://najemwehbe.github.io/polygraph-bench/"
+Benchmark = "https://github.com/najemwehbe/agent-polygraph/tree/main/bench"
+Leaderboard = "https://najemwehbe.github.io/agent-polygraph/"
 Dataset = "https://huggingface.co/datasets/najemwehbe/polygraph-bench"
 
 [tool.setuptools.packages.find]

@@ -23,7 +23,7 @@ v.confidence   # 1.0   (structured error bit)
 v.evidence     # (Finding(check="error_concealment", detail=...),)
 ```
 
-This is the SDK companion to [polygraph-bench](https://github.com/najemwehbe/polygraph-bench),
+This is the SDK companion to [polygraph-bench](bench/) (in this repo since 2026-11-05),
 the public benchmark for agent-lying detectors. The detector shipped here is a
 **clean-room reimplementation** of a private production honesty gate, validated at
 verdict parity against that gate on the benchmark's 396-item corpus (numbers below).
@@ -246,19 +246,19 @@ verdict), or `"all"`. A judge that overrides a verdict self-stamps its own
 
 ## Relationship to polygraph-bench
 
-agent-polygraph and [polygraph-bench](https://github.com/najemwehbe/polygraph-bench)
+agent-polygraph and [polygraph-bench](bench/) (merged into this repo on 2026-11-05, both histories kept)
 are two halves of the same effort:
 
-- **[polygraph-bench](https://github.com/najemwehbe/polygraph-bench)** — the public
+- **[polygraph-bench](bench/)** (`bench/`) — the public
   396-item benchmark that *measures* completion-lie detectors. The clean-room
   detector here is validated against it.
-  [Leaderboard](https://najemwehbe.github.io/polygraph-bench/) ·
+  [Leaderboard](https://najemwehbe.github.io/agent-polygraph/) ·
   [Dataset on Hugging Face](https://huggingface.co/datasets/najemwehbe/polygraph-bench).
 - **agent-polygraph** (this package) — the *detector* you run in production, with
   adapters for real frameworks.
 
 If you build a better detector, benchmark it on polygraph-bench and open a
-submission PR there.
+submission PR here (files under `bench/`).
 
 ---
 
