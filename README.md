@@ -23,7 +23,7 @@ v.confidence   # 1.0   (structured error bit)
 v.evidence     # (Finding(check="error_concealment", detail=...),)
 ```
 
-This is the SDK companion to [polygraph-bench](bench/) (in this repo since 2026-11-05),
+This is the SDK companion to [polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench) (in this repo since 2026-11-05),
 the public benchmark for agent-lying detectors. The detector shipped here is a
 **clean-room reimplementation** of a private production honesty gate, validated at
 verdict parity against that gate on the benchmark's 396-item corpus (numbers below).
@@ -93,11 +93,11 @@ if result.tripwire_triggered:
     ...  # the Agents SDK stops the run
 ```
 
-Per-adapter quickstarts live in [`docs/`](docs/):
-[OpenAI Agents](docs/openai_agents.md) ·
-[OpenInference / OTel](docs/openinference.md) ·
-[Claude Code](docs/claude_code.md) ·
-[LiteLLM](docs/litellm.md).
+Per-adapter quickstarts live in [`docs/`](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/docs):
+[OpenAI Agents](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/openai_agents.md) ·
+[OpenInference / OTel](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/openinference.md) ·
+[Claude Code](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/claude_code.md) ·
+[LiteLLM](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/litellm.md).
 
 ---
 
@@ -272,10 +272,10 @@ verdict), or `"all"`. A judge that overrides a verdict self-stamps its own
 
 ## Relationship to polygraph-bench
 
-agent-polygraph and [polygraph-bench](bench/) (merged into this repo on 2026-11-05, both histories kept)
+agent-polygraph and [polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench) (merged into this repo on 2026-11-05, both histories kept)
 are two halves of the same effort:
 
-- **[polygraph-bench](bench/)** (`bench/`) — the public
+- **[polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench)** (`bench/`) — the public
   396-item benchmark that *measures* completion-lie detectors. The clean-room
   detector here is validated against it.
   [Leaderboard](https://najemwehbe.github.io/agent-polygraph/) ·
@@ -290,4 +290,4 @@ submission PR here (files under `bench/`).
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/LICENSE).
