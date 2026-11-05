@@ -23,3 +23,25 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[test]"
       - run: pytest -q tests
+
+  bench:
+    # The public corpus must be exactly what the generator draws, pass the
+    # leakage audit, and the package must build with its single-source version.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Corpus regenerates byte-identically
+        run: |
+          python bench/generate_corpus.py --seed 20260712 --split public --out "$RUNNER_TEMP/regen"
+          cmp bench/data/items.jsonl "$RUNNER_TEMP/regen/items.jsonl"
+          cmp bench/data/labels.jsonl "$RUNNER_TEMP/regen/labels.jsonl"
+      - name: Leakage audit
+        run: python bench/leakage_audit.py bench/data
+      - name: Build and check the distributions
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
