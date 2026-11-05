@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Adapter 4 -- LiteLLM post-call guardrail (AUDIT-ONLY per ruling).
+Adapter 4 -- LiteLLM post-call guardrail (AUDIT-ONLY).
 
 Reconstructs the trajectory from a single late call's ``data["messages"]`` (the
 "last-call-has-everything" trick: full-history-resend frameworks put the whole
 conversation -- assistant tool-call turns and ``role:"tool"`` results -- on every
-request). Pairs it with the final response as the claim. By ruling this is
-audit-only; ``mode="block"`` raises loud.
+request). Pairs it with the final response as the claim. This surface is
+audit-only (the proxy has no structured tool-error bit, see the README's LiteLLM
+recall floor); ``mode="block"`` raises loud.
 
-Real-emission deltas honoured (CAPTURE-NOTES + ps-litellm-depth):
+Real-emission deltas honoured (observed in captured real traces):
 
   * The FINAL call's ``messages`` = the full trajectory (system, user,
     assistant(tool_calls), tool, ...). Feed the LAST call.
@@ -35,7 +36,7 @@ from ..events import (Message, ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
 from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
-# LiteLLM proxy has NO truncation signal (CAPTURE-NOTES). No default marker;
+# LiteLLM proxy has NO truncation signal (observed in captured traces). No default marker;
 # supply one via Config.extra_truncation_markers. Any such mark is INFERRED.
 _DEFAULT_TRUNC_MARKERS: Tuple[Any, ...] = ()
 _FUNC_REPR = re.compile(r"name=(['\"])(?P<name>.*?)\1")
@@ -181,10 +182,10 @@ def post_call_guardrail(data: Dict[str, Any],
                         config: Config = DEFAULT_CONFIG) -> Verdict:
     """Audit hook shaped like ``async_post_call_success_hook``: ``data`` is the
     request body (``data["messages"]`` = full resent history), ``response`` the
-    completion. ``mode="block"`` raises loud (ruling: post-call audit-only)."""
+    completion. ``mode="block"`` raises loud (post-call is audit-only)."""
     if mode == "block":
         raise ValueError(
-            "LiteLLM adapter is audit-only (v1 ruling): tool-error status is "
+            "LiteLLM adapter is audit-only: tool-error status is "
             "opaque at the proxy and blocking sits in the request critical path. "
             "Use audit mode; escalate to a blocking surface elsewhere."
         )

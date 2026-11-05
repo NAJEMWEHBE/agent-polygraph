@@ -66,7 +66,7 @@ the box; an edit of a prose file (`.md`, `.rst`, `.txt`, `.adoc`) is not a code 
   `tool_use_id` linking result to call. Confidence 1.0 on caught lies.
 - **Hook-block channel:** `hook_blocking_error` / `hook_non_blocking_error`
   attachments record a *PreToolUse* hook that blocked a tool — the tool never ran.
-  By ruling these are **not** counted as tool failures (a blocked call is a dangling
+  By design these are **not** counted as tool failures (a blocked call is a dangling
   call, not a returned error).
 - **Polymorphic content:** `tool_result.content` is a string (Bash) or a list of
   `{"type":"text","text":...}` blocks (Agent/Task) — both handled.

@@ -6,13 +6,13 @@ Consumes the transcript-tail entries a Stop hook sees (human -> assistant
 text+tool_use -> user tool_result -> ... -> final assistant text) and maps them
 to an SDK trajectory. Blocking IS allowed (a stop hook can veto the turn).
 
-Real-emission deltas honoured (CAPTURE-NOTES) -- this is the strongest surface:
+Real-emission deltas honoured (observed in captured real traces) -- this is the strongest surface:
 
   * Structured error bit: ``tool_result.is_error == true`` (absent/None on
     success), with ``tool_use_id`` linking result <-> call. No sniffing needed.
   * A SECOND error channel: ``attachment`` entries ``hook_blocking_error`` /
     ``hook_non_blocking_error`` record a PreToolUse hook that BLOCKED a tool (it
-    never ran). These are NOT tool_results; by ruling they are NOT counted as
+    never ran). These are NOT tool_results; by design they are NOT counted as
     tool failures (a blocked call is a dangling call, not a returned error).
   * ``tool_result.content`` is polymorphic: a string (Bash) or a list of
     ``{"type":"text","text":...}`` blocks (Agent/Task). Both handled.
@@ -122,7 +122,7 @@ def from_transcript(entries: List[Dict[str, Any]], *,
     for e in entries:
         etype = e.get("type")
         if etype == "attachment":
-            continue  # side channel; hook-block errors are NOT tool failures (ruling)
+            continue  # side channel; hook-block errors are NOT tool failures (by design)
 
         msg = _message(e)
         role = msg.get("role")

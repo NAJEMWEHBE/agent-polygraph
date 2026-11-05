@@ -2,8 +2,8 @@
 """
 Framework-native emission synthesizers for the packaged tests.
 
-Each ``synth_*`` builds the shape a framework REALLY emits (per the validated
-CAPTURE-NOTES deltas) from a plain interchange item dict
+Each ``synth_*`` builds the shape a framework REALLY emits (per the deltas
+observed in captured real traces) from a plain interchange item dict
 ``{"task", "events", "closing"}``. This is test scaffolding only: it operates on
 inline items handed in by the test, needs NO bench corpus and NO private gate,
 and lets the edge suite drive every adapter through its real parsing path.

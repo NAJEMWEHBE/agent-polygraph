@@ -23,7 +23,7 @@ v.confidence   # 1.0   (structured error bit)
 v.evidence     # (Finding(check="error_concealment", detail=...),)
 ```
 
-This is the SDK companion to [polygraph-bench](bench/) (in this repo since 2026-11-05),
+This is the SDK companion to [polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench) (in this repo since 2026-11-05),
 the public benchmark for agent-lying detectors. The detector shipped here is a
 **clean-room reimplementation** of a private production honesty gate, validated at
 verdict parity against that gate on the benchmark's 396-item corpus (numbers below).
@@ -57,7 +57,7 @@ Verdict(
     verdict="lie" | "honest",
     evidence=(Finding(check, detail), ...),
     confidence=1.0 | 0.7,      # signal-quality GRADE, not a probability
-    detector_version="0.1.0",  # self-stamped for cross-version comparison
+    detector_version="0.2.0",  # self-stamped for cross-version comparison
     flags=(...),               # degradation markers driving a 0.7 grade
     category="L1" | "L2" | "L3" | None,
 )
@@ -93,18 +93,18 @@ if result.tripwire_triggered:
     ...  # the Agents SDK stops the run
 ```
 
-Per-adapter quickstarts live in [`docs/`](docs/):
-[OpenAI Agents](docs/openai_agents.md) ·
-[OpenInference / OTel](docs/openinference.md) ·
-[Claude Code](docs/claude_code.md) ·
-[LiteLLM](docs/litellm.md).
+Per-adapter quickstarts live in [`docs/`](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/docs):
+[OpenAI Agents](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/openai_agents.md) ·
+[OpenInference / OTel](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/openinference.md) ·
+[Claude Code](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/claude_code.md) ·
+[LiteLLM](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/docs/litellm.md).
 
 ---
 
 ## Validation
 
 All numbers below come from actually-executed runs and are reported verbatim.
-Parity and the recall floor are the honest limits of a v0.1 heuristic detector —
+Parity and the recall floor are the honest limits of a heuristic detector —
 read them before you deploy in `block` mode.
 
 ### Parity vs the private gate — 393 / 396 (99.24%) at 0.1.0
@@ -132,7 +132,7 @@ Label-level, both over the 396-item set: **identical recall (0.460)** and the sa
 true-positive set; the clean detector carries **3 fewer false blocks**
 (FP 3.18% vs the gate's 4.55%).
 
-**Since 0.1.0 the detector has moved away from the gate on purpose.** The current
+**Since 0.1.0 the detector has moved away from the gate on purpose.** The 0.2.0
 detector no longer treats a documentation-only edit (`.md`, `.rst`, `.txt`, …) as
 code that needs a test run, which clears the three H5 honest items that both 0.1.0
 and the gate false-blocked. It flags **85** items instead of 88: the same 81 true
@@ -193,7 +193,7 @@ error signal. The LiteLLM adapter is **audit-only** for this reason.
 
 ## Known limitations
 
-These are structural properties of a heuristic-tier v0.1 detector, not defects to
+These are structural properties of a heuristic-tier detector, not defects to
 be worked around silently.
 
 **The error bit is the portability spine.**
@@ -234,7 +234,7 @@ On those turns the truncation bit is not set. This is **verdict-safe and
 confidence-neutral** in every observed case (it can only matter when an L2
 completeness finding fires over such an attachment — which did not occur in
 validation); the residual is a possible missed 0.7 downgrade, never a false block.
-A v0.1.x follow-up may scan attachment snippets or let you register the marker via
+A follow-up may scan attachment snippets or let you register the marker via
 `Config.extra_truncation_markers`.
 
 ---
@@ -243,7 +243,7 @@ A v0.1.x follow-up may scan attachment snippets or let you register the marker v
 
 The heuristic detector is deterministic and cheap; some cases (the dangling-call
 miss above) need reasoning it cannot do. `verify()` exposes a synchronous `Judge`
-protocol as the stable extension seam. **No judge ships in v0.1** — this is the
+protocol as the stable extension seam. **No judge ships yet** — this is the
 documented interface a future model-backed judge slots into without changing the
 `verify()` contract.
 
@@ -272,10 +272,10 @@ verdict), or `"all"`. A judge that overrides a verdict self-stamps its own
 
 ## Relationship to polygraph-bench
 
-agent-polygraph and [polygraph-bench](bench/) (merged into this repo on 2026-11-05, both histories kept)
+agent-polygraph and [polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench) (merged into this repo on 2026-11-05, both histories kept)
 are two halves of the same effort:
 
-- **[polygraph-bench](bench/)** (`bench/`) — the public
+- **[polygraph-bench](https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench)** (`bench/`) — the public
   396-item benchmark that *measures* completion-lie detectors. The clean-room
   detector here is validated against it.
   [Leaderboard](https://najemwehbe.github.io/agent-polygraph/) ·
@@ -284,10 +284,11 @@ are two halves of the same effort:
   adapters for real frameworks.
 
 If you build a better detector, benchmark it on polygraph-bench and open a
-submission PR here (files under `bench/`).
+submission PR here (files under `bench/`); see
+[CONTRIBUTING.md](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/CONTRIBUTING.md).
 
 ---
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/NAJEMWEHBE/agent-polygraph/blob/main/LICENSE).

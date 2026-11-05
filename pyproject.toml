@@ -4,17 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-polygraph"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Framework-agnostic completion-lie detector for AI agents -- catches an agent turn whose final claim contradicts its own tool evidence."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [{ name = "Polygraph Bench maintainers" }]
+authors = [{ name = "Najem Wehbe" }]
+maintainers = [{ name = "Najem Wehbe" }]
 keywords = [
     "agent", "llm", "honesty", "hallucination", "guardrail",
     "observability", "openai-agents", "openinference", "opentelemetry",
-    "litellm", "claude-code", "evaluation",
+    "litellm", "claude-code", "evaluation", "llm-agents", "ai-safety",
+    "hallucination-detection", "guardrails", "benchmark",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -39,11 +41,16 @@ agent-polygraph-claude-hook = "agent_polygraph.claude_code_hook:main"
 test = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://github.com/najemwehbe/agent-polygraph"
-Repository = "https://github.com/najemwehbe/agent-polygraph"
-Benchmark = "https://github.com/najemwehbe/agent-polygraph/tree/main/bench"
+Homepage = "https://github.com/NAJEMWEHBE/agent-polygraph"
+Repository = "https://github.com/NAJEMWEHBE/agent-polygraph"
+Issues = "https://github.com/NAJEMWEHBE/agent-polygraph/issues"
+Benchmark = "https://github.com/NAJEMWEHBE/agent-polygraph/tree/main/bench"
 Leaderboard = "https://najemwehbe.github.io/agent-polygraph/"
 Dataset = "https://huggingface.co/datasets/najemwehbe/polygraph-bench"
+
+[tool.setuptools.dynamic]
+# the single version source; __init__ and every verdict's detector_version read it too
+version = { attr = "agent_polygraph.detector.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

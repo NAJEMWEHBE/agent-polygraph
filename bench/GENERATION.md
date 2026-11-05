@@ -198,8 +198,10 @@ file position tells a detector anything about the label. Consequences:
   combinations, hence no item content — the sets are disjoint (ids differ too,
   since the draw is part of the id hash). Each
   category provides at least four blocks (verified at build time), so consecutive
-  seeds and the public/hidden pair are guaranteed disjoint. Rotating to a fresh,
-  non-overlapping corpus is just a new seed.
+  seeds and the public/hidden pair are guaranteed disjoint. Distant seeds can
+  wrap onto the same block (seeds 2 and 5 collide with 20260712 in six
+  categories), so a new seed is a fresh corpus only once
+  `check_seed_independence.py` passes against the seeds already in use.
 - **Holdout isolation:** at a fixed seed, `public` and `hidden` occupy different
   blocks, so the withheld holdout never overlaps the public set.
 

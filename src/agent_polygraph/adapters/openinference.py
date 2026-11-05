@@ -2,12 +2,12 @@
 """
 Adapter 2 -- OTel / OpenInference span consumer (AUDIT-ONLY).
 
-OpenInference convention first (ps-semconv-strategy: it captures tool
-args/results by default; official OTel gen_ai.* is opt-in-dark). This is a
+OpenInference convention first: it captures tool args/results by default,
+while official OTel ``gen_ai.*`` content capture is off unless you opt in. This is a
 read-only trace consumer; there is no run to halt, so ``mode="block"`` raises
 loud rather than silently degrading.
 
-Real-emission deltas honoured (CAPTURE-NOTES):
+Real-emission deltas honoured (observed in captured real traces):
 
   * Span kind is the attribute ``openinference.span.kind`` (values CHAIN / LLM /
     TOOL / AGENT), NOT a top-level ``span_kind``. A single turn emits ~6 CHAIN
@@ -26,9 +26,10 @@ Real-emission deltas honoured (CAPTURE-NOTES):
     JSON ``{"type":"tool","data":{"content":...}}`` -- content is extracted.
   * ``status_description`` / exception stacktraces leak host paths -> redacted.
 
-Capability probe (ps-semconv-strategy): if the trace looks like vanilla official
-OTel gen_ai.* with content capture off (tool spans present but no args/results),
-we surface that as a diagnostic rather than silently returning honest.
+Dark surface: vanilla OTel ``gen_ai.*`` spans with content capture off carry no
+tool arguments or results, so the adapter sees no evidence and returns honest.
+Turn on OpenInference instrumentation (or gen_ai content capture) before
+trusting an honest verdict from such a trace.
 """
 from __future__ import annotations
 
@@ -39,7 +40,7 @@ from ..events import (Message, ToolCall, ToolResult, looks_like_error,
                       matches_truncation, redact)
 from ..verify import Config, DEFAULT_CONFIG, Verdict, _adapter_config, verify
 
-# OTel/OpenInference has NO truncation signal (CAPTURE-NOTES). No default marker;
+# OTel/OpenInference has NO truncation signal (observed in captured traces). No default marker;
 # supply one via Config.extra_truncation_markers. Any such mark is INFERRED.
 _DEFAULT_TRUNC_MARKERS: Tuple[Any, ...] = ()
 

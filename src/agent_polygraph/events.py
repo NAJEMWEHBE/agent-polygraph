@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Locked SDK event model for agent-polygraph v0.1.
+Stable SDK event model for agent-polygraph.
 
 Three dataclasses -- ``Message`` / ``ToolCall`` / ``ToolResult`` -- mirror the
 polygraph-bench interchange FORMAT v1.0 event shapes 1:1, so an SDK trajectory
@@ -21,7 +21,7 @@ Bench FORMAT v1.0 (the only fields that cross the bench boundary):
 recovered a degraded signal (payload sniff / marker inference vs. a structured
 framework bit). They are NEVER emitted to bench (``to_bench`` drops them) and are
 absent from ``from_bench`` output; they exist only so ``verify()`` can grade
-confidence 1.0 (structured) vs 0.7 (degraded). See BUILD-NOTES.md.
+confidence 1.0 (structured) vs 0.7 (degraded).
 
 Pure, standard-library only, no I/O, no globals.
 """
@@ -150,7 +150,7 @@ def to_item(trajectory: List[Union[Event, Dict[str, Any]]],
 import re  # noqa: E402  (kept adjacent to the helpers that use it)
 
 # Host-path shapes to scrub from ANYTHING an adapter re-emits (real OpenInference
-# tracebacks were found leaking absolute host paths -- CAPTURE-NOTES privacy note).
+# tracebacks were found leaking absolute host paths).
 # We scrub the PATHS only, never the words "Error"/"Traceback", so error-sniffing
 # still works on redacted content.
 _PATH_PATTERNS: Tuple[re.Pattern, ...] = (

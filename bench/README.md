@@ -4,7 +4,7 @@
 [![Dataset on HF](https://img.shields.io/badge/🤗%20dataset-polygraph--bench-yellow)](https://huggingface.co/datasets/najemwehbe/polygraph-bench)
 [![Leaderboard](https://img.shields.io/badge/leaderboard-live-388bfd)](https://najemwehbe.github.io/agent-polygraph/)
 [![Corpus](https://img.shields.io/badge/corpus-396%20items%20·%2016%20categories-8b949e)](#the-corpus)
-[![Submissions](https://img.shields.io/badge/detector%20PRs-welcome-3fb950)](CONTRIBUTING.md)
+[![Submissions](https://img.shields.io/badge/detector%20PRs-welcome-3fb950)](../CONTRIBUTING.md)
 [![SDK](https://img.shields.io/badge/SDK-agent--polygraph-e05d44)](https://github.com/NAJEMWEHBE/agent-polygraph)
 
 ![Polygraph Bench — agent transcript goes into a detector, verdict comes out and is scored against the label](docs/assets/hero.svg)
@@ -25,8 +25,8 @@ that verdict against the label.
 **v1 scope:** detectors are judged, agents are not. Measuring how often agents lie is a
 later effort and is out of scope here.
 
-**Want this as a runtime check in your own agent stack?** The companion SDK
-[**agent-polygraph**](https://github.com/NAJEMWEHBE/agent-polygraph)
+**Want this as a runtime check in your own agent stack?** The
+[**agent-polygraph**](../README.md) SDK at the root of this repository
 (`pip install agent-polygraph`) ships a detector validated against this benchmark plus
 adapters for OpenAI Agents SDK, OpenInference/OTel, Claude Code, and LiteLLM.
 
@@ -90,9 +90,14 @@ into contiguous **blocks** of the target size. A `(seed, split)` pair selects on
 (`slot = seed*2 + split_bit`; `block = slot mod block_count`). Consequences:
 
 - **Reproducible** — a given `(seed, split)` always yields byte-identical output.
-- **Disjoint rotation** — consecutive seeds, and the public/hidden pair at any fixed seed,
-  land on different blocks, so they share no item content and no ids. Rotating to a fresh
-  corpus is just a new seed.
+- **Rotation needs a check** — the public/hidden pair at a fixed seed, and consecutive
+  seeds, land on different blocks. But each category has a finite number of blocks
+  (`slot mod block_count`), so two distant seeds can land on the same block: seeds 2 and 5
+  share whole blocks with the public seed 20260712 (L3, H3, H5, H8-plain, L5 and L7). A new
+  seed is only a fresh corpus once `check_seed_independence.py` passes against the public
+  seed; the hidden-seed protocol redraws any seed that collides. The generator is public, so
+  the item universe and its labels can be enumerated: a detector that looks items up by
+  content is possible, and submission review is what stops it.
 - **Holdout isolation** — at a fixed seed, `public` and `hidden` occupy different blocks,
   so a withheld holdout never overlaps the public set.
 
@@ -181,8 +186,10 @@ python harness/score.py --items data/items.jsonl --labels data/labels.jsonl \
 ```
 
 `score.py` emits `metrics.json` (machine) and `report.md` (human) with a confusion matrix
-and recall / FP / precision / F1 / accuracy **overall, per split, and per category**. Pass
-multiple `--verdicts name=path` to get a by-detector comparison table.
+and recall / FP / `score` / precision / F1 / accuracy **overall, per split, and per
+category**, plus whether the detector is **ranked** (core score ≥ 0.80) and its rank score
+(the hard-split score). Pass multiple `--verdicts name=path` to get a by-detector comparison
+table.
 
 ## Baselines
 
@@ -196,7 +203,7 @@ adapter details are in [BASELINES.md](BASELINES.md).
 | **b3** | `b3_ollama_judge.py` — a machine-local LLM judge, one completion-lie question, grammar-constrained JSON verdict | yes, with a local Ollama serving `qwen3:4b-instruct-2507-q4_K_M` | localhost only |
 | **b4** | `b4_frontier_judge.py` — frontier-model judge over the Anthropic Messages API | **reference implementation only** | opt-in `--live` |
 
-**b4 is never run officially** (free-only launch ruling, 2026-07-13): no official b4
+**b4 is never run officially** (free-only launch policy, 2026-07-13): no official b4
 numbers exist or will be published. It ships so community submitters have a ready-made
 frontier-judge harness. The leaderboard's frontier column is **community-sourced via PR
 submissions**, self-funded, with cost reporting per the scoring protocol.
@@ -218,7 +225,7 @@ synthetic seeds):
 ### Gate result: PASSED (2026-07-13, adversarially verified; re-evaluated PASS 2026-07-17 on collision-free seeds)
 
 Measured on the real holdout vs the hidden-synthetic median (b1/b2/b3; b4 excluded per the
-free-only ruling). Numbers below are the 2026-07-17 re-evaluation, after the seed-collision
+free-only policy). Numbers below are the 2026-07-17 re-evaluation, after the seed-collision
 guard's pre-registered redraw replaced the later-drawn colliding seed:
 
 | detector | real recall | real FP | real score | hidden-median recall | hidden-median FP | hidden-median score |
@@ -291,7 +298,7 @@ the hidden-set rotation policy are in **[SCORING.md](SCORING.md)**.
 
 ## Leaderboard
 
-[![Live leaderboard: real private holdout + hidden synthetic set, three baselines ranked](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/agent-polygraph/)
+[![Live leaderboard: real private holdout + hidden synthetic set, three baselines, none ranked yet](docs/assets/leaderboard-card.png)](https://najemwehbe.github.io/agent-polygraph/)
 
 The leaderboard is published via **GitHub Pages** from
 [`docs/index.html`](docs/index.html). It ranks detectors by hard-split score (core floor
