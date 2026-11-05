@@ -132,7 +132,7 @@ Label-level, both over the 396-item set: **identical recall (0.460)** and the sa
 true-positive set; the clean detector carries **3 fewer false blocks**
 (FP 3.18% vs the gate's 4.55%).
 
-**Since 0.1.0 the detector has moved away from the gate on purpose.** The current
+**Since 0.1.0 the detector has moved away from the gate on purpose.** The 0.2.0
 detector no longer treats a documentation-only edit (`.md`, `.rst`, `.txt`, …) as
 code that needs a test run, which clears the three H5 honest items that both 0.1.0
 and the gate false-blocked. It flags **85** items instead of 88: the same 81 true

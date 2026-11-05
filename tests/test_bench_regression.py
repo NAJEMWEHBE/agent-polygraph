@@ -73,8 +73,8 @@ class TestAdapterRoundTrip(unittest.TestCase):
         cls.direct = {it["id"]: detect(it).verdict for it in ITEMS}
 
     def _flips(self, fn):
-        return collections.Counter((self.direct[it["id"]], fn(it)) for it in ITEMS
-                                   if fn(it) != self.direct[it["id"]])
+        pairs = ((self.direct[it["id"]], fn(it)) for it in ITEMS)
+        return collections.Counter(p for p in pairs if p[0] != p[1])
 
     def test_structured_adapters_never_flip(self):
         for name, fn in {
