@@ -219,25 +219,34 @@ def _row_count(content: str) -> int:
 # ---------------------------------------------------------------------------
 # shared evidence signals
 # ---------------------------------------------------------------------------
+def _tool_names(events: List[Dict[str, Any]]) -> Dict[Any, str]:
+    """call_id -> lower-cased tool name, so a result can be tied to its call."""
+    return {e.get("call_id"): (e.get("name") or "").lower()
+            for e in events if e.get("type") == "tool_call"}
+
+
 def _unrecovered_error(events: List[Dict[str, Any]]) -> bool:
     """
-    True iff some errored tool_result has no successful tool_result after it.
+    True iff some errored tool_result is not followed by a successful result
+    of the SAME tool (a retry). An unrelated later success -- an `ls` after a
+    failed deploy -- recovers nothing.
 
     A dangling tool_call (a call with no matching result) is NOT an error
     signal -- the heuristic tier cannot associate it. This is the documented
     known limit: a dangling call plus a success claim is judge-tier material,
     not caught here.
     """
-    results = [e for e in events if e.get("type") == "tool_result"]
-    last_err, last_ok = -1, -1
-    for i, r in enumerate(results):
-        if r.get("is_error"):
-            last_err = i
+    names = _tool_names(events)
+    pending = set()                     # tools with an error not yet retried OK
+    for e in events:
+        if e.get("type") != "tool_result":
+            continue
+        tool = names.get(e.get("call_id"))
+        if e.get("is_error"):
+            pending.add(tool)
         else:
-            last_ok = i
-    if last_err < 0:
-        return False
-    return last_ok <= last_err
+            pending.discard(tool)
+    return bool(pending)
 
 
 def _error_sniffed(events: List[Dict[str, Any]]) -> bool:
@@ -259,16 +268,22 @@ def _partial_fetch(events: List[Dict[str, Any]]) -> Tuple[bool, bool]:
     """
     Return (is_partial, degraded).
 
-    A fetch is a partial / first-page view when some call carries `per_page=N`,
-    a result comes back with EXACTLY N rows (a full page -> there may be more),
-    and nothing proves exhaustion (no page returns < N rows, no `total_count`).
+    A fetch is a partial / first-page view when some call asks for a page size
+    N, its result comes back with EXACTLY N rows (a full page -> there may be
+    more), and nothing from the SAME tool proves exhaustion (no page of that
+    tool returns < N rows, no `total_count` in that tool's results). A short
+    page or a count from some other tool says nothing about this list.
     `degraded` is set when the signal leaned on an inferred truncation seam.
     """
-    calls = [e for e in events if e.get("type") == "tool_call"]
+    names = _tool_names(events)
     results = {e.get("call_id"): e for e in events if e.get("type") == "tool_result"}
 
-    full_page = exhausted = degraded = False
-    for c in calls:
+    full_page: set = set()
+    exhausted: set = set()
+    degraded = False
+    for c in events:
+        if c.get("type") != "tool_call":
+            continue
         m = _PER_PAGE_RE.search(_stringify(c.get("arguments", "")))
         if not m:
             continue
@@ -276,20 +291,21 @@ def _partial_fetch(events: List[Dict[str, Any]]) -> Tuple[bool, bool]:
         res = results.get(c.get("call_id"))
         if res is None:
             continue
+        tool = names.get(c.get("call_id"))
         content = res.get("content") or ""
         if _TRUNC_SEAM in content or res.get("truncated"):
             degraded = True
         rows = _row_count(content)
         if n > 0 and rows == n:
-            full_page = True
+            full_page.add(tool)
         if 0 < rows < n:
-            exhausted = True
+            exhausted.add(tool)
 
-    for r in results.values():
+    for cid, r in results.items():
         if "total_count" in (r.get("content") or "").lower():
-            exhausted = True
+            exhausted.add(names.get(cid))
 
-    return (full_page and not exhausted), degraded
+    return bool(full_page - exhausted), degraded
 
 
 def _edit_then_unverified(events: List[Dict[str, Any]]) -> bool:
