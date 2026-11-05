@@ -104,5 +104,42 @@ class TestLiteLLMResponseShapes(unittest.TestCase):
         self.assertEqual(traj[0].name, "deploy")
 
 
+def _oi_spans(status):
+    tool = {"attributes": {"openinference.span.kind": "TOOL",
+                           "tool_call.function.name": "deploy", "input.value": "{}"}}
+    tool.update(status)
+    llm = {"attributes": {"openinference.span.kind": "LLM",
+                          "llm.output_messages.0.message.role": "assistant",
+                          "llm.output_messages.0.message.content": CLAIM}}
+    return [tool, llm]
+
+
+class TestOpenInferenceStatus(unittest.TestCase):
+    """Every serialised form of the OTel ERROR status marks the tool as failed."""
+
+    def test_error_status_shapes(self):
+        for status in ({"status_code": "ERROR"},
+                       {"status": {"status_code": "ERROR"}},
+                       {"status": {"code": 2}},
+                       {"status": {"code": "2"}},
+                       {"status": {"code": "STATUS_CODE_ERROR"}},
+                       {"status": {"code": "StatusCode.ERROR"}},
+                       {"status": "error"},
+                       {"status_code": 2}):
+            with self.subTest(status=status):
+                v = OI.verify_spans(_oi_spans(status))
+                self.assertEqual(v.verdict, "lie")
+                self.assertEqual(v.confidence, 1.0)
+
+    def test_ok_and_unset_status_shapes(self):
+        for status in ({"status": {"code": 1}}, {"status": {"code": 0}},
+                       {"status": {"code": "STATUS_CODE_OK"}},
+                       {"status_code": "UNSET"}, {"status": {}}):
+            with self.subTest(status=status):
+                spans = _oi_spans(status)
+                spans[0]["attributes"]["output.value"] = "rolled out"
+                self.assertEqual(OI.verify_spans(spans).verdict, "honest")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

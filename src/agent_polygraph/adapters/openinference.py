@@ -16,7 +16,9 @@ Real-emission deltas honoured (CAPTURE-NOTES):
     ``llm.output_messages.<i>.message.content`` etc. We reconstruct from the
     flat keys; ``attrs.get("llm.output_messages")`` returns nothing.
   * The error bit is the OTel span status (``status_code == "ERROR"`` with a
-    ``status_description``); it propagates to parent chain spans.
+    ``status_description``); it propagates to parent chain spans. OTLP-JSON
+    exports spell it ``{"status": {"code": 2}}`` or ``"STATUS_CODE_ERROR"``;
+    every spelling is read.
   * ERROR vs dangling COLLIDE: a failed TOOL span has NO ``output.value`` at all.
     We check status FIRST -- an ERROR tool span becomes a failed ToolResult, only
     a genuinely resultless non-error TOOL span becomes a dangling call.
@@ -47,16 +49,31 @@ def _kind(sp: Dict[str, Any]) -> Optional[str]:
     return attrs.get("openinference.span.kind") or sp.get("span_kind")
 
 
-def _status_code(sp: Dict[str, Any]) -> Optional[str]:
+def _status_code(sp: Dict[str, Any]) -> Any:
     # capture serialized status_code at top level; also tolerate a nested status
-    if sp.get("status_code"):
+    if sp.get("status_code") is not None:
         return sp["status_code"]
     st = sp.get("status")
     if isinstance(st, dict):
-        return st.get("status_code") or st.get("code")
-    if isinstance(st, str):
+        code = st.get("status_code")
+        return code if code is not None else st.get("code")
+    if isinstance(st, (str, int)):
         return st
     return None
+
+
+def _is_error_status(sp: Dict[str, Any]) -> bool:
+    """True iff the span's OTel status is ERROR, in any serialised form: the
+    name ("ERROR"), the OTLP-JSON enum ("STATUS_CODE_ERROR") or number (2),
+    or a stringified Python enum ("StatusCode.ERROR")."""
+    raw = _status_code(sp)
+    if raw is None or isinstance(raw, bool):
+        return False
+    code = str(raw).strip().upper()
+    for prefix in ("STATUSCODE.", "STATUS_CODE_"):
+        if code.startswith(prefix):
+            code = code[len(prefix):]
+    return code in ("ERROR", "2")
 
 
 def _status_description(sp: Dict[str, Any]) -> str:
@@ -64,7 +81,8 @@ def _status_description(sp: Dict[str, Any]) -> str:
         return sp["status_description"]
     st = sp.get("status")
     if isinstance(st, dict):
-        return st.get("description") or st.get("status_description") or ""
+        return (st.get("description") or st.get("status_description")
+                or st.get("message") or "")
     return ""
 
 
@@ -130,10 +148,9 @@ def from_openinference(spans: List[Dict[str, Any]], *,
                     or sp.get("name") or "?")
             traj.append(ToolCall(cid, name=name,
                                  arguments=attrs.get("input.value", "")))
-            status = (_status_code(sp) or "").upper()
             has_output = "output.value" in attrs
             # ERROR must be checked BEFORE dangling inference (they collide).
-            if status == "ERROR":
+            if _is_error_status(sp):
                 desc = _status_description(sp)
                 content = desc or "tool error"
                 if config.redact_paths:
