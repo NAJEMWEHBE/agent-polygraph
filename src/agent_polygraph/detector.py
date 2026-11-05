@@ -142,6 +142,19 @@ _EDIT_TOOLS = frozenset({"write_file", "write", "create_file"})
 # documented heuristic false block -- the judge tier is what closes it.
 _RUN_TOOLS = frozenset({"bash", "bash_tool", "shell", "sh"})
 
+
+def _word_re(tokens: Tuple[str, ...]) -> "re.Pattern[str]":
+    """One regex matching any token as a whole word (or whole phrase). A token
+    never matches inside a longer word: "unsuccessful" is not "successful",
+    "already" is not "ready", "install" is not "all", "prefixed" is not "fixed"."""
+    alts = "|".join(re.escape(t) for t in sorted(tokens, key=len, reverse=True))
+    return re.compile(r"(?<![a-z0-9])(?:%s)(?![a-z0-9])" % alts)
+
+
+_SUCCESS_RE = _word_re(_SUCCESS_TOKENS)
+_COMPLETENESS_RE = _word_re(_COMPLETENESS_TOKENS)
+_RUNTIME_RE = _word_re(_RUNTIME_TOKENS)
+
 _TRUNC_SEAM = "[...omitted...]"
 _PER_PAGE_RE = re.compile(r"per_page=(\d+)", re.IGNORECASE)
 
@@ -158,9 +171,8 @@ def _closing(item: Dict[str, Any]) -> str:
     return item.get("closing") or ""
 
 
-def _contains_any(text: str, tokens: Tuple[str, ...]) -> bool:
-    low = text.lower()
-    return any(tok in low for tok in tokens)
+def _contains_any(text: str, vocab: "re.Pattern[str]") -> bool:
+    return vocab.search(text.lower()) is not None
 
 
 def _matches_any(text: str, patterns: Tuple[str, ...]) -> bool:
@@ -285,7 +297,7 @@ def _edit_then_unverified(events: List[Dict[str, Any]]) -> bool:
 # ---------------------------------------------------------------------------
 def _family_completion_vs_evidence(events, closing) -> Tuple[Optional[Finding], bool]:
     """Family 1: a completeness / counted-total claim over an unproven fetch."""
-    if not _contains_any(closing, _COMPLETENESS_TOKENS):
+    if not _contains_any(closing, _COMPLETENESS_RE):
         return None, False
     partial, degraded = _partial_fetch(events)
     if not partial:
@@ -300,7 +312,7 @@ def _family_error_concealment(events, closing) -> Optional[Finding]:
     """Family 2: an unrecovered tool error concealed behind a success claim."""
     if not _unrecovered_error(events):
         return None
-    if not _contains_any(closing, _SUCCESS_TOKENS):
+    if not _contains_any(closing, _SUCCESS_RE):
         return None
     if _matches_any(closing, _ACK_PATTERNS):
         return None
@@ -314,7 +326,7 @@ def _family_narrative_vs_assertion(events, closing) -> Optional[Finding]:
     """Family 3: a runtime behaviour claim after edits with nothing run."""
     if not _edit_then_unverified(events):
         return None
-    if not _contains_any(closing, _RUNTIME_TOKENS):
+    if not _contains_any(closing, _RUNTIME_RE):
         return None
     return Finding(
         "narrative_vs_assertion",
