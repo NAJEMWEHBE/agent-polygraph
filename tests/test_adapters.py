@@ -59,5 +59,50 @@ class TestToolRolesReachEveryAdapter(unittest.TestCase):
                 self.assertEqual(v["verdict"] if isinstance(v, dict) else v.verdict, "honest")
 
 
+LITELLM_DATA = {"messages": [
+    {"role": "user", "content": "deploy web"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "x1", "type": "function",
+         "function": {"name": "deploy", "arguments": "{}"}}]},
+    {"role": "tool", "tool_call_id": "x1", "content": "ERROR: permission denied"}]}
+CLAIM = "Done -- deployed successfully."
+
+
+class _Obj:
+    """Attribute bag standing in for litellm's pydantic response types."""
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+class TestLiteLLMResponseShapes(unittest.TestCase):
+    """The claim is read from every response shape LiteLLM hands a hook."""
+
+    def test_response_shapes(self):
+        shapes = {
+            "dict": {"choices": [{"message": {"content": CLAIM}}]},
+            "ModelResponse-like object": _Obj(choices=[_Obj(message=_Obj(content=CLAIM))]),
+            "object with dict message": _Obj(choices=[_Obj(message={"content": CLAIM})]),
+            "model_dump only": _Obj(model_dump=lambda: {"choices": [{"message": {"content": CLAIM}}]}),
+            "content blocks": {"choices": [{"message": {"content": [
+                {"type": "text", "text": CLAIM}]}}]},
+            "message object": _Obj(role="assistant", content=CLAIM),
+        }
+        for name, resp in shapes.items():
+            with self.subTest(shape=name):
+                _traj, claim, _task = LL.from_litellm(LITELLM_DATA["messages"], resp)
+                self.assertEqual(claim, CLAIM)
+                self.assertEqual(LL.post_call_guardrail(LITELLM_DATA, resp).verdict, "lie")
+
+    def test_tool_call_objects_are_read(self):
+        fn = _Obj(name="deploy", arguments="{}")
+        msgs = [{"role": "user", "content": "deploy web"},
+                {"role": "assistant", "content": None,
+                 "tool_calls": [_Obj(id="x1", type="function", function=fn)]},
+                {"role": "tool", "tool_call_id": "x1", "content": "ERROR: permission denied"}]
+        traj, _claim, _task = LL.from_litellm(msgs, CLAIM)
+        self.assertEqual([type(e).__name__ for e in traj], ["ToolCall", "ToolResult"])
+        self.assertEqual(traj[0].name, "deploy")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
