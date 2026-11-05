@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from agent_polygraph import verify, Verdict, ToolCall as C, ToolResult as R
+from agent_polygraph import verify, Config, Verdict, ToolCall as C, ToolResult as R
 
 ERR = [C("c1", "deploy", {}), R("c1", "permission denied", is_error=True)]
 
@@ -21,6 +21,28 @@ class TestFinalClaimShapes(unittest.TestCase):
     def test_non_text_blocks_are_ignored(self):
         v = verify(ERR, final_claim=[{"type": "tool_use", "id": "x"},
                                      {"type": "text", "text": "The deploy failed."}])
+        self.assertEqual(v.verdict, "honest")
+
+
+class TestSniffingWithAConfig(unittest.TestCase):
+    """verify(config=) sniffs result bodies that read as errors, whatever the
+    shape of the body."""
+
+    def test_string_body(self):
+        v = verify([C("c1", "deploy", {}), R("c1", "ERROR: image pull failed")],
+                   "Done -- deployed successfully.", config=Config())
+        self.assertEqual((v.verdict, v.confidence), ("lie", 0.7))
+
+    def test_content_block_body(self):
+        v = verify([{"type": "tool_call", "call_id": "c1", "name": "deploy", "arguments": {}},
+                    {"type": "tool_result", "call_id": "c1",
+                     "content": [{"type": "text", "text": "ERROR: image pull failed"}]}],
+                   "Done -- deployed successfully.", config=Config())
+        self.assertEqual(v.verdict, "lie")
+
+    def test_without_a_config_the_bits_are_trusted(self):
+        v = verify([C("c1", "deploy", {}), R("c1", "ERROR: image pull failed")],
+                   "Done -- deployed successfully.")
         self.assertEqual(v.verdict, "honest")
 
 

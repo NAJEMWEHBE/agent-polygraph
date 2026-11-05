@@ -124,7 +124,7 @@ def _sniffed(e: Any, patterns: Tuple[str, ...]) -> Any:
     """A ToolResult with no error bit whose body reads as an error -> a copy
     with the bit set and the degraded-signal provenance recorded."""
     if (isinstance(e, ToolResult) and not e.is_error
-            and looks_like_error(e.content, patterns)):
+            and looks_like_error(_text(e.content), patterns)):
         return replace(e, is_error=True, error_sniffed=True)
     return e
 
