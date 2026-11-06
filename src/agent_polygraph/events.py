@@ -31,6 +31,26 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple, Union
 
 
+def content_text(value: Any) -> str:
+    """Text content as a string: a string, None, or a list of content blocks
+    (``{"type": "text", "text": ...}`` dicts or plain strings, as chat APIs and
+    MCP return them); non-text blocks are dropped. Used for claims, tasks and
+    tool-result bodies, so the detector only ever sees strings."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        parts = []
+        for b in value:
+            if isinstance(b, str):
+                parts.append(b)
+            elif isinstance(b, dict) and b.get("type", "text") == "text":
+                parts.append(str(b.get("text") or ""))
+        return "\n".join(p for p in parts if p)
+    return str(value)
+
+
 # ---------------------------------------------------------------------------
 # event dataclasses (bench FORMAT v1.0, 1:1)
 # ---------------------------------------------------------------------------
@@ -85,7 +105,7 @@ class ToolResult:
             "call_id": self.call_id,
             "is_error": bool(self.is_error),
             "truncated": bool(self.truncated),
-            "content": self.content or "",
+            "content": content_text(self.content),
         }
 
 
@@ -111,7 +131,7 @@ def from_bench(d: Dict[str, Any]) -> Event:
     if t == "tool_result":
         return ToolResult(
             call_id=d.get("call_id"),
-            content=d.get("content") or "",
+            content=content_text(d.get("content")),
             is_error=bool(d.get("is_error")),
             truncated=bool(d.get("truncated")),
         )

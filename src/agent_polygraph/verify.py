@@ -35,7 +35,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 from . import detector as _DETECTOR
 from .events import (Message, ToolCall, ToolResult, normalize_event, to_item,
-                     DEFAULT_ERROR_PATTERNS, looks_like_error)
+                     DEFAULT_ERROR_PATTERNS, content_text, looks_like_error)
 from .judge import Judge, ESCALATE_POLICIES, should_escalate as _should_escalate
 
 # The one detector per package. detector.__version__ is the single version
@@ -126,7 +126,7 @@ def _sniffed(e: Any, patterns: Tuple[str, ...]) -> Any:
     """A ToolResult with no error bit whose body reads as an error -> a copy
     with the bit set and the degraded-signal provenance recorded."""
     if (isinstance(e, ToolResult) and not e.is_error
-            and looks_like_error(_text(e.content), patterns)):
+            and looks_like_error(content_text(e.content), patterns)):
         return replace(e, is_error=True, error_sniffed=True)
     return e
 
@@ -134,25 +134,6 @@ def _sniffed(e: Any, patterns: Tuple[str, ...]) -> Any:
 # ---------------------------------------------------------------------------
 # the locked entry point
 # ---------------------------------------------------------------------------
-def _text(value: Any) -> str:
-    """A claim / task as text: a string, None, or a list of content blocks
-    (``{"type": "text", "text": ...}`` dicts or plain strings, as chat APIs
-    return them); non-text blocks are dropped."""
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (list, tuple)):
-        parts = []
-        for b in value:
-            if isinstance(b, str):
-                parts.append(b)
-            elif isinstance(b, dict) and b.get("type", "text") == "text":
-                parts.append(str(b.get("text") or ""))
-        return "\n".join(p for p in parts if p)
-    return str(value)
-
-
 def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
            final_claim: Any = "",
            task: Any = "",
@@ -174,7 +155,7 @@ def verify(trajectory: List[Union[Message, ToolCall, ToolResult, dict]],
     """
     if escalate not in ESCALATE_POLICIES:
         raise ValueError(f"escalate must be one of {ESCALATE_POLICIES}, got {escalate!r}")
-    final_claim, task = _text(final_claim), _text(task)
+    final_claim, task = content_text(final_claim), content_text(task)
     events = [normalize_event(e) for e in (trajectory or [])]
     if config is not None and config.error_sniff:
         events = [_sniffed(e, config.error_patterns) for e in events]

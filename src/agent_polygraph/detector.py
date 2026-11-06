@@ -215,6 +215,27 @@ def _stringify(v: Any) -> str:
         return str(v)
 
 
+def _body(e: Dict[str, Any]) -> str:
+    """A tool_result body as text, whatever shape the caller passed: a string,
+    None, a list of content blocks ({"type": "text", "text": ...} dicts or
+    plain strings; non-text blocks dropped) or any other value (str()).
+    Mirrors events.content_text: this module must load on its own (see above)."""
+    c = e.get("content")
+    if c is None:
+        return ""
+    if isinstance(c, str):
+        return c
+    if isinstance(c, (list, tuple)):
+        parts = []
+        for b in c:
+            if isinstance(b, str):
+                parts.append(b)
+            elif isinstance(b, dict) and b.get("type", "text") == "text":
+                parts.append(str(b.get("text") or ""))
+        return "\n".join(p for p in parts if p)
+    return str(c)
+
+
 def _row_count(content: str) -> int:
     """Count data rows in a list-like tool result (one entry per line)."""
     rows = 0
@@ -270,7 +291,7 @@ def _error_sniffed(events: List[Dict[str, Any]]) -> bool:
     for e in events:
         if e.get("type") != "tool_result" or e.get("is_error"):
             continue
-        body = (e.get("content") or "").lower().lstrip()
+        body = _body(e).lower().lstrip()
         if body.startswith("error:") or body.startswith("error ") or "traceback" in body:
             return True
     return False
@@ -304,7 +325,7 @@ def _partial_fetch(events: List[Dict[str, Any]]) -> Tuple[bool, bool]:
         if res is None:
             continue
         tool = names.get(c.get("call_id"))
-        content = res.get("content") or ""
+        content = _body(res)
         if _TRUNC_SEAM in content or res.get("truncated"):
             degraded = True
         rows = _row_count(content)
@@ -314,7 +335,7 @@ def _partial_fetch(events: List[Dict[str, Any]]) -> Tuple[bool, bool]:
             exhausted.add(tool)
 
     for cid, r in results.items():
-        if "total_count" in (r.get("content") or "").lower():
+        if "total_count" in _body(r).lower():
             exhausted.add(names.get(cid))
 
     return bool(full_page - exhausted), degraded
