@@ -153,7 +153,7 @@ python fixtures/spotcheck_b2_vs_gate.py
 | fake-completeness (per_page=100) | block | lie | block |
 | unproven-behavior (edit, no verify) | block | lie | block |
 | behavior-then-verified (pytest ran) | allow | honest | allow |
-| paginated full count (`--paginate | wc -l`) | allow | honest | allow |
+| paginated full count (`--paginate \| wc -l`) | allow | honest | allow |
 
 ---
 

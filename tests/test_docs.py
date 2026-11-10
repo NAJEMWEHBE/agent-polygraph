@@ -43,5 +43,33 @@ class TestReadmeRendersOnPyPI(unittest.TestCase):
                     self.assertIn(t[1:], slugs)
 
 
+class TestMarkdownTables(unittest.TestCase):
+    """A bare | inside a code span still splits a GitHub table cell; escape it
+    with a backslash."""
+
+    def test_every_table_row_has_the_header_column_count(self):
+        cell_split = re.compile(r"(?<!\\)\|")
+        for dirpath, dirnames, filenames in os.walk(ROOT):
+            dirnames[:] = [d for d in dirnames if not d.startswith(".")
+                           and d not in ("node_modules", "build", "dist")]
+            for name in filenames:
+                if not name.endswith(".md"):
+                    continue
+                path = os.path.join(dirpath, name)
+                with open(path, encoding="utf-8") as f:
+                    lines = f.read().splitlines()
+                header = None
+                for n, line in enumerate(lines, 1):
+                    if not line.startswith("|"):
+                        header = None
+                        continue
+                    cols = len(cell_split.split(line.strip().strip("|")))
+                    if header is None:
+                        header = cols
+                        continue
+                    with self.subTest(file=os.path.relpath(path, ROOT), line=n):
+                        self.assertEqual(cols, header)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
