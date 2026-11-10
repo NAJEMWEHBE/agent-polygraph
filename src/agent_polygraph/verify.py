@@ -89,7 +89,8 @@ class Config:
     * ``error_sniff``            -- recover a lost tool-error bit by sniffing the
                                     result payload when no structured bit exists
                                     (ON by default; sniffed -> 0.7 grade).
-    * ``error_patterns``         -- override the built-in sniff patterns.
+    * ``error_patterns``         -- override the built-in sniff patterns
+                                    (regexes, matched case-insensitively).
     * ``extra_truncation_markers`` -- extra markers appended to each adapter's
                                     per-framework defaults (literal substrings, or
                                     ``re:``-prefixed regexes).
