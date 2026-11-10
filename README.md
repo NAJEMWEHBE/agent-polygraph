@@ -65,7 +65,7 @@ Verdict(
 
 `confidence` is a **signal-quality grade, not a probability**: `1.0` when the
 verdict rode a structured framework signal, `0.7` when it rode an *inferred*
-truncation marker or a *sniffed* error payload (see [degraded signals](#the-error-bit-is-the-portability-spine)).
+truncation marker or a *sniffed* error payload (see "The error bit is the portability spine" under [known limitations](#known-limitations)).
 
 ---
 

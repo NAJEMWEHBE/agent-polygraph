@@ -31,6 +31,17 @@ class TestReadmeRendersOnPyPI(unittest.TestCase):
                 with self.subTest(link=t):
                     self.assertRegex(t, r"^https://github\.com/NAJEMWEHBE/agent-polygraph(/|$)")
 
+    def test_every_in_page_anchor_names_a_heading(self):
+        # GitHub's heading slug: lower case, punctuation dropped, spaces to "-".
+        with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
+            text = re.sub(r"```.*?```", "", f.read(), flags=re.DOTALL)
+        slugs = {re.sub(r"[^\w\- ]", "", h.strip().lower()).replace(" ", "-")
+                 for h in re.findall(r"^#{1,6} (.+)$", text, flags=re.MULTILINE)}
+        for t in _targets("README.md"):
+            if t.startswith("#"):
+                with self.subTest(anchor=t):
+                    self.assertIn(t[1:], slugs)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
