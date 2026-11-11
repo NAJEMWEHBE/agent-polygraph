@@ -11,15 +11,37 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LINK = re.compile(r"\]\(([^)\s]+)[^)]*\)|(?:src|href)=\"([^\"]+)\"")
-_FENCE = re.compile(r"```.*?```", re.DOTALL)
+_FENCE_LINE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _CELL_SPLIT = re.compile(r"(?<!\\)\|")
 _DELIMITER_ROW = re.compile(r"^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
+
+
+def _fenced(lines):
+    """For each line, True when it is a fence or inside a fenced code example.
+    As GitHub reads them: a fence is three or more ` or ~, and closes on a line
+    of the same character, at least as long, with nothing after it."""
+    inside = []
+    opener = None                                   # (character, length)
+    for line in lines:
+        m = _FENCE_LINE.match(line)
+        if opener is None:
+            opens = bool(m) and not (m.group(1)[0] == "`" and "`" in m.group(2))
+            if opens:
+                opener = (m.group(1)[0], len(m.group(1)))
+            inside.append(opens)
+            continue
+        inside.append(True)
+        if (m and m.group(1)[0] == opener[0] and len(m.group(1)) >= opener[1]
+                and not m.group(2).strip()):
+            opener = None
+    return inside
 
 
 def _rendered(text):
     """The Markdown with its fenced code examples left out: nothing in them is
     rendered as a link or a heading."""
-    return _FENCE.sub("", text)
+    lines = text.splitlines()
+    return "\n".join(line for line, fenced in zip(lines, _fenced(lines)) if not fenced)
 
 
 def _read(path):
@@ -40,7 +62,14 @@ def _slug(heading):
 
 
 def _cells(line):
-    return len(_CELL_SPLIT.split(line.strip().strip("|")))
+    """Cells in a table row. Only one outer pipe is optional at each end: a
+    second one bounds an empty cell."""
+    row = line.strip()
+    if row.startswith("|"):
+        row = row[1:]
+    if row.endswith("|") and not row.endswith("\\|"):
+        row = row[:-1]
+    return len(_CELL_SPLIT.split(row))
 
 
 def _table_faults(lines):
@@ -50,13 +79,10 @@ def _table_faults(lines):
     Nothing inside a fenced code example is a table."""
     faults = []
     header = None
-    fenced = False
+    fenced = _fenced(lines)
     for n, line in enumerate(lines, 1):
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
+        if fenced[n - 1]:
             header = None
-            continue
-        if fenced:
             continue
         if header is None:
             above = lines[n - 2] if n >= 2 else ""
@@ -135,6 +161,24 @@ class TestTheDocChecksThemselves(unittest.TestCase):
         lines = ["```md", "| a | b |", "|---|---|", "| 1 | 2 | 3 |", "```",
                  "| a | b |", "|---|---|", "| 1 | 2 | 3 |"]
         self.assertEqual(_table_faults(lines), [(8, 3, 2)])
+
+    def test_a_tilde_fence_is_a_fence(self):
+        lines = ["~~~", "| a | b |", "|---|---|", "| 1 | 2 | 3 |", "[example](#sample)", "~~~",
+                 "[real](#here)"]
+        self.assertEqual(_table_faults(lines), [])
+        self.assertEqual(_targets("\n".join(lines)), ["#here"])
+
+    def test_a_fence_closes_only_on_its_own_kind_and_length(self):
+        shorter_inside = ["````md", "```", "[example](#sample)", "```", "````", "[real](#here)"]
+        self.assertEqual(_targets("\n".join(shorter_inside)), ["#here"])
+        text_after = ["```", "``` not a close", "[example](#sample)", "```", "[real](#here)"]
+        self.assertEqual(_targets("\n".join(text_after)), ["#here"])
+        other_kind = ["```", "~~~", "[example](#sample)", "```", "[real](#here)"]
+        self.assertEqual(_targets("\n".join(other_kind)), ["#here"])
+
+    def test_an_empty_cell_at_the_end_of_a_row_is_a_cell(self):
+        self.assertEqual(_table_faults(["|a|b|c|", "|-|-|-|", "|1|2||"]), [])
+        self.assertEqual(_table_faults(["|a|b|c|", "|-|-|-|", "|1|2|"]), [(3, 2, 3)])
 
 
 if __name__ == "__main__":
