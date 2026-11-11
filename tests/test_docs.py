@@ -46,10 +46,18 @@ def _cells(line):
 def _table_faults(lines):
     """(line number, cells, header cells) for every table row whose cell count
     differs from its header's. A table is a row followed by a delimiter row
-    (GitHub does not need the leading pipe) and runs until a line with no pipe."""
+    (GitHub does not need the leading pipe) and runs until a line with no pipe.
+    Nothing inside a fenced code example is a table."""
     faults = []
     header = None
+    fenced = False
     for n, line in enumerate(lines, 1):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            header = None
+            continue
+        if fenced:
+            continue
         if header is None:
             above = lines[n - 2] if n >= 2 else ""
             if "|" in line and "|" in above and _DELIMITER_ROW.match(line):
@@ -122,6 +130,11 @@ class TestTheDocChecksThemselves(unittest.TestCase):
     def test_a_table_with_leading_pipes_is_checked(self):
         lines = ["| a | b |", "|---|---|", "| 1 | 2 |", r"| `x\|y` | 3 |", "| 1 | 2 | 3 |"]
         self.assertEqual(_table_faults(lines), [(5, 3, 2)])
+
+    def test_a_table_inside_a_fenced_example_is_not_checked(self):
+        lines = ["```md", "| a | b |", "|---|---|", "| 1 | 2 | 3 |", "```",
+                 "| a | b |", "|---|---|", "| 1 | 2 | 3 |"]
+        self.assertEqual(_table_faults(lines), [(8, 3, 2)])
 
 
 if __name__ == "__main__":
