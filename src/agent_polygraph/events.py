@@ -205,11 +205,11 @@ DEFAULT_ERROR_PATTERNS: Tuple[str, ...] = (
 
 
 def looks_like_error(content: str, patterns: Tuple[str, ...] = DEFAULT_ERROR_PATTERNS) -> bool:
-    """True iff a tool-result body reads as a failure payload."""
+    """True iff a tool-result body reads as a failure payload. Every pattern,
+    built-in or caller-supplied, is matched case-insensitively."""
     if not content:
         return False
-    low = content.lower()
-    return any(re.search(p, low) for p in patterns)
+    return any(re.search(p, content, re.IGNORECASE) for p in patterns)
 
 
 # --- truncation-marker matching ---------------------------------------------

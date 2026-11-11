@@ -202,6 +202,17 @@ class TestVerifyConfig(unittest.TestCase):
                      config=Config(error_sniff=False))
         self.assertEqual(off.verdict, "honest")
 
+    def test_custom_error_patterns_match_case_insensitively(self):
+        # A caller's pattern is matched like the built-ins: without regard to case.
+        from agent_polygraph import Config
+        traj = [C("c1", "deploy", {}), R("c1", "DEPLOY FAILED: image pull")]
+        for pattern in (r"^DEPLOY FAILED:", r"^deploy failed:"):
+            with self.subTest(pattern=pattern):
+                v = verify(traj, "Done -- deployed successfully.",
+                           config=Config(error_patterns=(pattern,)))
+                self.assertEqual(v.verdict, "lie")
+                self.assertIn("error_payload_sniffed", v.flags)
+
 
 class TestNegatedSuccessIsDisclosure(unittest.TestCase):
     """A negated success word ("could not complete") discloses the failure."""
